@@ -6,7 +6,7 @@ from torchvision.models.utils import load_state_dict_from_url
 
 __all__ = ['hrnet18', 'hrnet32', 'hrnet48']
 
-from utils.pruning.custom_layers import Gate, create_channel_mapper
+from pruning.custom_layers import Gate, create_channel_mapper
 
 model_urls = {
     'hrnet18_imagenet': 'https://opr0mq.dm.files.1drv.com/y4mIoWpP2n-LUohHHANpC0jrOixm1FZgO2OsUtP2DwIozH5RsoYVyv_De5w'

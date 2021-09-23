@@ -2,25 +2,28 @@ import argparse
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='SWD')
+    parser = argparse.ArgumentParser(description='Neural Network Shrinking')
 
-    parser.add_argument('--output_path', type=str, default="./outputs",
-                        help="Where to save models  (default: './checkpoint')")
+    # TASK
 
-    parser.add_argument("--print_images", action="store_true", default=False,
-                        help="Print one image at each epoch.")
+    parser.add_argument('--task', type=str, default="semanticsegmentation",
+                        help="Type of task (either 'semanticsegmentation' or 'classification')")
+
+    # PATHS
+
+    parser.add_argument('--results_path', type=str, default="./results",
+                        help="Where to save results  (default: './results')")
+
+    parser.add_argument('--checkpoint_path', type=str, default="./checkpoints",
+                        help="Where to save models  (default: './checkpoints')")
 
     parser.add_argument('--dataset_path', type=str, default="./data",
                         help="Where to get the dataset (default: './dataset')")
 
-    parser.add_argument('--encoder', type=str, default="hrnet48",
-                        help="Type of encoder (default: 'hrnet48')")
+    # GENERAL
 
-    parser.add_argument('--decoder', type=str, default="unet",
-                        help="Type of decoder (default: 'unet')")
-
-    parser.add_argument('--criterion', type=str, default="rmi",
-                        help="Type of criterion (default: 'rmi')")
+    parser.add_argument('--dataset', type=str, default="./cityscapes",
+                        help="dataset to use  (default: './cityscapes')")
 
     parser.add_argument('--optimizer', type=str, default="sgd",
                         help="Type of optimizer (default: 'sgd')")
@@ -46,6 +49,37 @@ def parse_arguments():
     parser.add_argument('--epochs', type=int, default=200,
                         help='Number of epochs to train (default: 200)')
 
+    parser.add_argument("--distributed", action="store_true", default=False,
+                        help="Distributes the model across available GPUs.")
+
+    parser.add_argument("--debug", action="store_true", default=False,
+                        help="Debug mode.")
+
+    parser.add_argument('--criterion', type=str, default="rmi",
+                        help="Type of criterion (default: 'rmi')")
+
+    parser.add_argument('--metrics', type=str, nargs='+', default=['miou'],
+                        help="List of metrics (default: ['miou'])")
+
+    parser.add_argument('--device', type=str, default="cuda",
+                        help="Device to use (default: 'cuda')")
+
+    # CLASSIFICATION
+
+    parser.add_argument('--model', type=str, default="resnet20",
+                        help="Type of classification model (default: 'resnet20')")
+
+    parser.add_argument('--input_feature_maps', type=int, default=64,
+                        help='Input feature maps of classification ResNets (either 64 or 16)')
+
+    # SEMANTIC SEGMENTATION
+
+    parser.add_argument('--encoder', type=str, default="hrnet48",
+                        help="Type of encoder (default: 'hrnet48')")
+
+    parser.add_argument('--decoder', type=str, default="unet",
+                        help="Type of decoder (default: 'unet')")
+
     parser.add_argument("--unet_variant", action="store_true", default=False,
                         help="Uses the unet variant.")
 
@@ -67,25 +101,7 @@ def parse_arguments():
     parser.add_argument('--output_stride', type=int, default=16,
                         help='Output stride (16 or 8) of ResNet when dilated for DeepLabV3 (default: 16)')
 
-    parser.add_argument("--debug", action="store_true", default=False,
-                        help="Debug mode.")
-
     parser.add_argument("--pretrained", action="store_true", default=False,
                         help="Use pretrained models.")
-
-    parser.add_argument("--distributed", action="store_true", default=False,
-                        help="Distributes the model across available GPUs.")
-
-    parser.add_argument("--swd", action="store_true", default=False,
-                        help="Prunes model using SWD.")
-
-    parser.add_argument('--a_min', default=1, type=float,
-                        help='SWD lower bound.')
-
-    parser.add_argument('--a_max', default=1e5, type=float,
-                        help='SWD higher bound.')
-
-    parser.add_argument('--pruning_rate', default=0.5, type=float,
-                        help='Pruning rate.')
 
     return parser.parse_args()

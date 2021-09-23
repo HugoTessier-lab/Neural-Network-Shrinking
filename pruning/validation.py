@@ -1,6 +1,6 @@
-from utils.pruning.pruner import Pruner
-from models import hrnet
-from utils.pruning.custom_layers import Gate
+from pruning.pruner import Pruner
+from semantic_segmentation.models import hrnet
+from pruning.custom_layers import Gate
 import torch
 import numpy as np
 import random

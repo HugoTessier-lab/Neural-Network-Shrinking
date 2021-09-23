@@ -137,6 +137,7 @@ class RMILoss(nn.Module):
         self.d = 2 * self.half_d
         self.kernel_padding = self.rmi_pool_size // 2
         self.ignore_index = 255
+        self.name = 'RMI'
 
     def forward(self, logits_4D, labels_4D):
         loss = self.forward_sigmoid(logits_4D, labels_4D)
@@ -220,3 +221,15 @@ class RMILoss(nn.Module):
         rmi_per_class = torch.div(rmi_per_class, float(self.half_d))
         rmi_loss = torch.sum(rmi_per_class) if _IS_SUM else torch.mean(rmi_per_class)
         return rmi_loss
+
+
+def get_criterion(criterion):
+    if criterion == 'crossentropy':
+        criterion = torch.nn.CrossEntropyLoss(ignore_index=19)
+        setattr(criterion, 'name', 'CrossEntropy')
+        return criterion
+    elif criterion == 'rmi':
+        return RMILoss(num_classes=19)
+    else:
+        print('Invalid criterion type')
+        raise ValueError

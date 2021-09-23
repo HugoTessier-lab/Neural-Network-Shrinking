@@ -1,5 +1,5 @@
 import torch.nn as nn
-from models.shufflenet import ShuffleNetV2
+from semantic_segmentation.encoders.shufflenet import ShuffleNetV2
 
 
 class FCN8(nn.Module):

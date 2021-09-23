@@ -136,12 +136,23 @@ class CityScapesDataset(torch.utils.data.Dataset):
         return image, label
 
 
-def load_cityscapes(path, batch_size=128, test_batch_size=256):
-    train_dataset = CityScapesDataset(path, 'train', True)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-    reset_dataset = CityScapesDataset(path, 'train', False)
-    reset_loader = torch.utils.data.DataLoader(reset_dataset, batch_size=test_batch_size, shuffle=True, num_workers=4)
-    test_dataset = CityScapesDataset(path, 'val', False)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=test_batch_size, shuffle=False, num_workers=4)
+def load_cityscapes(args):
+    train_dataset = CityScapesDataset(args.dataset_path, 'train', True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size,
+                                               shuffle=True, num_workers=4)
+    reset_dataset = CityScapesDataset(args.dataset_path, 'train', False)
+    reset_loader = torch.utils.data.DataLoader(reset_dataset, batch_size=args.test_batch_size,
+                                               shuffle=True, num_workers=4)
+    test_dataset = CityScapesDataset(args.dataset_path, 'val', False)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.test_batch_size,
+                                              shuffle=False, num_workers=4)
 
     return {'train': train_loader, 'test': test_loader, 'reset': reset_loader}
+
+
+def get_dataset(args):
+    if args.dataset == "cityscapes":
+        return load_cityscapes(args)
+    else:
+        raise Exception(f"Dataset '{args.dataset}' is not a valid dataset for the '{args.task}' task. "
+                        f"Could not load any data.")

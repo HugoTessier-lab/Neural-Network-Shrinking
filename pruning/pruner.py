@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from utils.pruning.custom_layers import Gate, ChannelMapper, MutableChannelMapper, unfreeze_mapper, EmptyLayer
+from pruning.custom_layers import Gate, ChannelMapper, MutableChannelMapper, unfreeze_mapper, EmptyLayer
 import copy
-from utils.pruning.layer_shrinker import shrink_identity, shrink_gate, shrink_bn, shrink_conv
+from pruning.layer_shrinker import shrink_identity, shrink_gate, shrink_bn, shrink_conv
 
 
 class Pruner:

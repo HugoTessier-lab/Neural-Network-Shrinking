@@ -1,5 +1,5 @@
 import torch
-from utils.pruning.custom_layers import Gate
+from pruning.custom_layers import Gate
 
 
 class GateMagnitude:

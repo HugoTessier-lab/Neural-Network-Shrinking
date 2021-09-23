@@ -1,7 +1,7 @@
 import torch.nn as nn
-from models.shufflenet import ShuffleNetV2
-from models.mobilenetv2 import MobileNetV2
-from models.resnet import ResNet
+from semantic_segmentation.encoders.shufflenet import ShuffleNetV2
+from semantic_segmentation.encoders.mobilenetv2 import MobileNetV2
+from semantic_segmentation.encoders.resnet import ResNet
 import torch
 
 
