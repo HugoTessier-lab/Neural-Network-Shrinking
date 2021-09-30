@@ -22,6 +22,9 @@ def parse_arguments():
 
     # GENERAL
 
+    parser.add_argument('--model', type=str, default="resnet20",
+                        help="Type of model (default: 'resnet20')")
+
     parser.add_argument('--dataset', type=str, default="./cityscapes",
                         help="dataset to use  (default: './cityscapes')")
 
@@ -66,19 +69,10 @@ def parse_arguments():
 
     # CLASSIFICATION
 
-    parser.add_argument('--model', type=str, default="resnet20",
-                        help="Type of classification model (default: 'resnet20')")
-
     parser.add_argument('--input_feature_maps', type=int, default=64,
                         help='Input feature maps of classification ResNets (either 64 or 16)')
 
     # SEMANTIC SEGMENTATION
-
-    parser.add_argument('--encoder', type=str, default="hrnet48",
-                        help="Type of encoder (default: 'hrnet48')")
-
-    parser.add_argument('--decoder', type=str, default="unet",
-                        help="Type of decoder (default: 'unet')")
 
     parser.add_argument("--unet_variant", action="store_true", default=False,
                         help="Uses the unet variant.")

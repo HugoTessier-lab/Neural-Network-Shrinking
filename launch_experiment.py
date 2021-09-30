@@ -5,14 +5,14 @@ def main():
     arguments = args.parse_arguments()
 
     if arguments.task == 'semanticsegmentation':
-        from semantic_segmentation import criterion, datasets, metrics, models
+        from semantic_segmentation import criterion, datasets, metrics, networks
     elif arguments.task == 'classification':
-        from classification import criterion, datasets, metrics, models
+        from classification import criterion, datasets, metrics, networks
     else:
         print('Wrong task type.')
         raise ValueError
 
-    model = models.get_model(arguments)
+    model = networks.get_model(arguments)
     optim = optimizer.get_optimizer(arguments, model)
     sched = scheduler.get_scheduler(arguments, optim)
     check = checkpoint.Checkpoint(model, optim, sched, arguments.device, arguments.distributed,

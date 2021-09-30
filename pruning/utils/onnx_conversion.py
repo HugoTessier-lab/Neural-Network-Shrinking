@@ -8,13 +8,13 @@ def to_onnx(model, path, image_shape, device):
 
 
 if __name__ == '__main__':
-    from semantic_segmentation.models.hrnet import hrnet18
-    from pruning.pruner import Pruner
+    from semantic_segmentation.networks.hrnet import hrnet18
+    from pruning.pruner.pruner import Pruner
     from time import time
-    from pruning.custom_layers import Gate
+    from pruning.pruner.custom_layers import Gate
     import numpy as np
     import random
-    from pruning.target_calculation import find_mask
+    from pruning.process.target_calculation import find_mask
 
 
     def set_seed(seed=0):
@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
     set_seed(0)
 
-    m = hrnet18()
+    m = hrnet18(gates=True, mappers=True)
     m.eval()
 
     for mod in m.modules():
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     begin = time()
     mask = find_mask(m, p, 0.95)
     print('Elapsed time ', time() - begin)
-    p.apply_mask(mask)
+    p.set_mask(mask)
     p.compute_pruning()
 
     before = len(torch.cat([i.flatten() for i in m.parameters()]))
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     m(torch.rand(1, 3, 100, 100))
     forward1 = time() - begin
     print('Forward time before ', forward1)
-    to_onnx(m, 'unpruned.onnx', (1, 3, 100, 100), 'cpu')
+    # to_onnx(m, 'unpruned.onnx', (1, 3, 100, 100), 'cpu')
 
     p.shrink_model(m)
     after = len(torch.cat([i.flatten() for i in m.parameters()]))
