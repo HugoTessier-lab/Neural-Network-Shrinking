@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from pruning.pruner.custom_layers import Gate, ChannelMapper, MutableChannelMapper, unfreeze_mapper, EmptyLayer
+from pruning.pruner.custom_operators import Gate, ShortcutAdder, MutableShortcutAdder, unfreeze_adder, EmptyLayer
 import copy
 from pruning.pruner.layer_shrinker import shrink_identity, shrink_gate, shrink_bn, shrink_conv
 
@@ -31,7 +31,7 @@ class Mock:
         self.remove_bias()
         self.neutralize_batchnorms()
         self.adjust_weights()
-        self.unfreeze_mappers(self.mock, dtype)
+        self.unfreeze_adders(self.mock, dtype)
         self.insert_hooks()
 
     def remove_bias(self):
@@ -47,14 +47,14 @@ class Mock:
                 m.running_mean.fill_(0)
                 m.running_var.fill_(1)
 
-    def unfreeze_mappers(self, network, dtype):
+    def unfreeze_adders(self, network, dtype):
         for n, m in network.named_children():
-            if isinstance(m, ChannelMapper):
-                setattr(network, n, unfreeze_mapper(m).to(self.device).type(dtype))
+            if isinstance(m, ShortcutAdder):
+                setattr(network, n, unfreeze_adder(m).to(self.device).type(dtype))
             elif len([i for i in m.named_children()]) == 0:
                 pass
             else:
-                self.unfreeze_mappers(m, dtype)
+                self.unfreeze_adders(m, dtype)
 
     def adjust_weights(self):
         for p in self.mock.parameters():
@@ -72,7 +72,7 @@ class Mock:
         mock = copy.deepcopy(self.mock)
         i = 0
         for m in mock.modules():
-            if hasattr(m, 'weight') and not isinstance(m, MutableChannelMapper):
+            if hasattr(m, 'weight') and not isinstance(m, MutableShortcutAdder):
                 m.weight.data = (m.weight.data * mask[i]).type(m.weight.data.dtype)
                 i += 1
         return mock
@@ -114,7 +114,7 @@ class Pruner:
     def compute_params_count(model):
         unpruned = 0
         for m in model.modules():
-            if not isinstance(m, MutableChannelMapper):
+            if not isinstance(m, MutableShortcutAdder):
                 if hasattr(m, 'weight'):
                     if m.weight.grad is not None:
                         unpruned += ((m.weight.data.flatten() != 0) & (m.weight.grad.flatten() != 0)).sum()
@@ -144,16 +144,16 @@ class Pruner:
                 shrink_bn(m, m_mock)
             elif isinstance(m, Gate):
                 shrink_gate(m, m_mock)
-            elif isinstance(m, ChannelMapper):
+            elif isinstance(m, ShortcutAdder):
                 shrink_identity(m, m_mock)
             else:
                 self._shrink_model(m, m_mock)
 
     def purge_empty_layers(self, model):
         for n, m in model.named_children():
-            if isinstance(m, ChannelMapper):
-                if 0 in m.in_channels.size() or 0 in m.out_channels.size():
-                    setattr(model, n, EmptyLayer().to(self.device))
+            # if isinstance(m, ShortcutAdder):
+            #     if 0 in m.in_channels.size() or 0 in m.out_channels.size():
+            #         setattr(model, n, EmptyLayer().to(self.device))
             if hasattr(m, 'weight'):
                 if 0 in m.weight.data.size():
                     if hasattr(m, 'bias'):

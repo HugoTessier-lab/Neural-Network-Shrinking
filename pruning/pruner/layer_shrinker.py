@@ -46,4 +46,6 @@ def shrink_identity(index, mock):
     in_channels = torch.sum(weight, dim=(0, 2, 3))
     out_channels = torch.sum(weight, dim=(1, 2, 3))
 
+    in_channels = torch.nonzero(in_channels)[:, 0]
+    out_channels = torch.nonzero(out_channels)[:, 0]
     index.update(in_channels, out_channels)

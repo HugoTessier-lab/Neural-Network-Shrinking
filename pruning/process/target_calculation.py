@@ -48,7 +48,7 @@ if __name__ == '__main__':
     from semantic_segmentation.networks import hrnet
     from pruning.process.pruning_criterion import GateGlobalMagnitude
     from pruning.pruner.pruner import Pruner
-    from pruning.pruner.custom_layers import Gate
+    from pruning.pruner.custom_operators import Gate
     import time
 
 

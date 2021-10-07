@@ -6,7 +6,7 @@ from torchvision.models.utils import load_state_dict_from_url
 
 __all__ = ['hrnet18', 'hrnet32', 'hrnet48']
 
-from pruning.pruner.custom_layers import Gate, create_channel_mapper
+from pruning.pruner.custom_operators import Gate, ShortcutAdder, add
 
 model_urls = {
     'hrnet18_imagenet': 'https://opr0mq.dm.files.1drv.com/y4mIoWpP2n-LUohHHANpC0jrOixm1FZgO2OsUtP2DwIozH5RsoYVyv_De5w'
@@ -27,17 +27,6 @@ model_urls = {
 }
 
 
-def add(a, b):
-    if 0 not in a.size() and 0 in b.size():
-        return a
-    elif 0 in a.size() and 0 not in b.size():
-        return b
-    elif 0 not in a.size() and 0 not in b.size():
-        return a + b
-    else:
-        return torch.Tensor([]).to(a.device)
-
-
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1, bias=False):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
@@ -52,7 +41,7 @@ def conv1x1(in_planes, out_planes, stride=1, bias=False):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, groups=1, base_width=64, dilation=1, gates=False, mappers=False):
+    def __init__(self, inplanes, planes, stride=1, groups=1, base_width=64, dilation=1, gates=False, adder=False):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.bn1 = nn.BatchNorm2d(planes)
@@ -65,12 +54,13 @@ class BasicBlock(nn.Module):
                 nn.BatchNorm2d(planes * self.expansion),
             )
         else:
-            if mappers:
-                self.downsample = create_channel_mapper(inplanes)
-            else:
-                self.downsample = None
+            self.downsample = None
         self.stride = stride
 
+        if adder:
+            self.adder = ShortcutAdder(planes)
+        else:
+            self.adder = add
         if gates:
             self.gate1 = Gate(planes)
             self.gate2 = Gate(planes)
@@ -92,7 +82,7 @@ class BasicBlock(nn.Module):
         else:
             identity = x
 
-        out = add(out, identity)
+        out = self.adder(out, identity)
         out = self.relu(out)
         if self.gate2 is not None:
             out = self.gate2(out)
@@ -103,7 +93,7 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, groups=1, base_width=64, dilation=1, gates=False, mappers=False):
+    def __init__(self, inplanes, planes, stride=1, groups=1, base_width=64, dilation=1, gates=False, adder=False):
         super(Bottleneck, self).__init__()
         width = int(planes * (base_width / 64.)) * groups
 
@@ -120,12 +110,13 @@ class Bottleneck(nn.Module):
                 nn.BatchNorm2d(planes * self.expansion),
             )
         else:
-            if mappers:
-                self.downsample = create_channel_mapper(inplanes)
-            else:
-                self.downsample = None
+            self.downsample = None
         self.stride = stride
 
+        if adder:
+            self.adder = ShortcutAdder(planes * self.expansion)
+        else:
+            self.adder = add
         if gates:
             self.gate1 = Gate(width)
             self.gate2 = Gate(planes)
@@ -154,7 +145,7 @@ class Bottleneck(nn.Module):
         else:
             identity = x
 
-        out = add(out, identity)
+        out = self.adder(out, identity)
         out = self.relu(out)
         if self.gate3 is not None:
             out = self.gate3(out)
@@ -163,7 +154,7 @@ class Bottleneck(nn.Module):
 
 
 class FuseBlock(nn.Module):
-    def __init__(self, i, num_branches, num_inchannels, gates=False, mappers=False):
+    def __init__(self, i, num_branches, num_inchannels, gates=False, adder=False):
         super(FuseBlock, self).__init__()
         self.num_branches = num_branches
         self.i = i
@@ -198,17 +189,26 @@ class FuseBlock(nn.Module):
             self.gate = Gate(num_inchannels[i])
         else:
             self.gate = None
-        if mappers:
-            self.identity = create_channel_mapper(num_inchannels[i])
+        if adder:
+            self.adder = ShortcutAdder(num_inchannels[i])
         else:
-            self.identity = None
+            self.adder = add
         self.resolution = None
 
     def forward(self, x):
-        y = (self.identity(x[0]) if self.identity is not None else x[0]) if self.i == 0 else self.fuse_layer[0](x[0])
+        y = x[0] if self.i == 0 else self.fuse_layer[0](x[0])
+        added = False
         for j in range(1, self.num_branches):
+            print(self.i, j, len(self.gate.weight), y.shape, added)
             if self.i == j:
-                y = add(y, self.identity(x[j]) if self.identity is not None else x[j])
+                if isinstance(self.adder, ShortcutAdder):
+                    print(self.adder.in_channels, self.adder.in_channels.shape)
+                    print(self.adder.out_channels, self.adder.out_channels.shape)
+                    print(self.gate.weight, self.gate.weight.shape)
+                print('1', y.shape, x[j].shape)
+                y = self.adder(y, x[j])
+                print('2', y.shape)
+                added = True
             elif j > self.i:
                 if 0 in x[self.i].size():
                     if self.resolution is None:
@@ -225,9 +225,16 @@ class FuseBlock(nn.Module):
                     interpolation = F.interpolate(result,
                                                   size=[height_output, width_output],
                                                   mode='bilinear', align_corners=False)
-                    y = add(y, interpolation)
+                    if self.i == 0 and not added:
+                        y = self.adder(interpolation, y)
+                        added = True
+                    else:
+                        print(interpolation.shape, y.shape)
+                        y = add(interpolation, y)
+                        added = True
             else:
                 y = add(y, self.fuse_layer[j](x[j]))
+                added = True
         y = F.relu(y)
         if self.gate is not None:
             y = self.gate(y)
@@ -235,7 +242,7 @@ class FuseBlock(nn.Module):
 
 
 class FuseStage(nn.Module):
-    def __init__(self, num_branches, num_inchannels, multi_scale_output, gates=False, mappers=False):
+    def __init__(self, num_branches, num_inchannels, multi_scale_output, gates=False, adder=False):
         super(FuseStage, self).__init__()
 
         self.num_branches = num_branches
@@ -244,7 +251,7 @@ class FuseStage(nn.Module):
 
         fuse_layers = []
         for i in range(num_branches if multi_scale_output else 1):
-            fuse_layers.append(FuseBlock(i, num_branches, num_inchannels, gates=gates, mappers=mappers))
+            fuse_layers.append(FuseBlock(i, num_branches, num_inchannels, gates=gates, adder=adder))
 
         self.fuse_layers = nn.ModuleList(fuse_layers)
 
@@ -256,22 +263,22 @@ class FuseStage(nn.Module):
 
 
 class HighResolutionBranches(nn.Module):
-    def __init__(self, num_branches, block, num_blocks, num_channels, num_inchannels, gates=False, mappers=False):
+    def __init__(self, num_branches, block, num_blocks, num_channels, num_inchannels, gates=False, adder=False):
         super(HighResolutionBranches, self).__init__()
         self.num_inchannels = num_inchannels
         branches = []
         for i in range(num_branches):
-            branches.append(self._make_one_branch(i, block, num_blocks, num_channels, gates=gates, mappers=mappers))
+            branches.append(self._make_one_branch(i, block, num_blocks, num_channels, gates=gates, adder=adder))
         self.branches = nn.ModuleList(branches)
 
-    def _make_one_branch(self, branch_index, block, num_blocks, num_channels, stride=1, gates=False, mappers=False):
+    def _make_one_branch(self, branch_index, block, num_blocks, num_channels, stride=1, gates=False, adder=False):
         layers = list()
         layers.append(block(self.num_inchannels[branch_index], num_channels[branch_index], stride,
-                            gates=gates, mappers=mappers))
+                            gates=gates, adder=adder))
         self.num_inchannels[branch_index] = num_channels[branch_index] * block.expansion
         for i in range(1, num_blocks[branch_index]):
             layers.append(block(self.num_inchannels[branch_index], num_channels[branch_index],
-                                gates=gates, mappers=mappers))
+                                gates=gates, adder=adder))
 
         return nn.Sequential(*layers)
 
@@ -284,7 +291,7 @@ class HighResolutionBranches(nn.Module):
 
 class HighResolutionModule(nn.Module):
     def __init__(self, num_branches, blocks, num_blocks, num_inchannels,
-                 num_channels, fuse_method, multi_scale_output=True, gates=False, mappers=False):
+                 num_channels, fuse_method, multi_scale_output=True, gates=False, adder=False):
         super(HighResolutionModule, self).__init__()
 
         self.num_inchannels = num_inchannels
@@ -293,9 +300,9 @@ class HighResolutionModule(nn.Module):
         self.multi_scale_output = multi_scale_output
 
         self.branches = HighResolutionBranches(num_branches, blocks, num_blocks, num_channels, self.num_inchannels,
-                                               gates=gates, mappers=mappers)
+                                               gates=gates, adder=adder)
         self.num_inchannels = self.branches.get_num_inchannels()
-        self.fuse_layers = FuseStage(num_branches, num_inchannels, multi_scale_output, gates=gates, mappers=mappers)
+        self.fuse_layers = FuseStage(num_branches, num_inchannels, multi_scale_output, gates=gates, adder=adder)
 
     def get_num_inchannels(self):
         return self.num_inchannels
@@ -369,7 +376,7 @@ class TransitionLayer(nn.Module):
 
 
 class HighResolutionStage(nn.Module):
-    def __init__(self, cfg, pre_stage_channels, previous_num_branches, gates=False, mappers=False):
+    def __init__(self, cfg, pre_stage_channels, previous_num_branches, gates=False, adder=False):
         super(HighResolutionStage, self).__init__()
         self.previous_num_branches = previous_num_branches
         self.cfg = cfg
@@ -378,9 +385,9 @@ class HighResolutionStage(nn.Module):
         num_channels = [num_channels[i] * block.expansion for i in range(len(num_channels))]
 
         self.transition = TransitionLayer(pre_stage_channels, num_channels, previous_num_branches, cfg, gates=gates)
-        self.stage, self.pre_stage_channels = self._make_stage(self.cfg, num_channels, gates=gates, mappers=mappers)
+        self.stage, self.pre_stage_channels = self._make_stage(self.cfg, num_channels, gates=gates, adder=adder)
 
-    def _make_stage(self, layer_config, num_inchannels, multi_scale_output=True, gates=False, mappers=False):
+    def _make_stage(self, layer_config, num_inchannels, multi_scale_output=True, gates=False, adder=False):
         num_modules = layer_config['NUM_MODULES']
         modules = []
         for i in range(num_modules):
@@ -393,7 +400,7 @@ class HighResolutionStage(nn.Module):
                                      fuse_method=layer_config['FUSE_METHOD'],
                                      multi_scale_output=not (not multi_scale_output and i == num_modules - 1),
                                      gates=gates,
-                                     mappers=mappers))
+                                     adder=adder))
             num_inchannels = modules[-1].get_num_inchannels()
         return nn.Sequential(*modules), num_inchannels
 
@@ -407,21 +414,21 @@ class HighResolutionStage(nn.Module):
 
 
 class ResNetStage(nn.Module):
-    def __init__(self, cfg, inplanes, gates=False, mappers=False):
+    def __init__(self, cfg, inplanes, gates=False, adder=False):
         super(ResNetStage, self).__init__()
         self.cfg = cfg
         num_channels = self.cfg['NUM_CHANNELS'][0]
         block = blocks_dict[self.cfg['BLOCK']]
         num_blocks = self.cfg['NUM_BLOCKS'][0]
         self.pre_stage_channels = [block.expansion * num_channels]
-        self.layer = self._make_layer(block, inplanes, num_channels, num_blocks, gates=gates, mappers=mappers)
+        self.layer = self._make_layer(block, inplanes, num_channels, num_blocks, gates=gates, adder=adder)
 
-    def _make_layer(self, block, inplanes, planes, blocks, stride=1, gates=False, mappers=False):
+    def _make_layer(self, block, inplanes, planes, blocks, stride=1, gates=False, adder=False):
         layers = list()
-        layers.append(block(inplanes, planes, stride, gates=gates, mappers=mappers))
+        layers.append(block(inplanes, planes, stride, gates=gates, adder=adder))
         inplanes = planes * block.expansion
         for i in range(1, blocks):
-            layers.append(block(inplanes, planes, gates=gates, mappers=mappers))
+            layers.append(block(inplanes, planes, gates=gates, adder=adder))
         return nn.Sequential(*layers)
 
     def forward(self, x):
@@ -432,7 +439,7 @@ class ResNetStage(nn.Module):
 
 
 class HighResolutionNet(nn.Module):
-    def __init__(self, cfg, num_classes=19, gates=False, mappers=False):
+    def __init__(self, cfg, num_classes=19, gates=False, adder=False):
         super(HighResolutionNet, self).__init__()
 
         self.conv1 = conv3x3(3, 64, stride=2)
@@ -449,13 +456,13 @@ class HighResolutionNet(nn.Module):
             self.gate2 = None
         self.relu = nn.ReLU()
 
-        self.layer1 = ResNetStage(cfg['STAGE1'], inplanes=64, gates=gates, mappers=mappers)
+        self.layer1 = ResNetStage(cfg['STAGE1'], inplanes=64, gates=gates, adder=adder)
         self.stage2 = HighResolutionStage(cfg['STAGE2'], self.layer1.get_pre_stage_channels(),
-                                          cfg['STAGE1']['NUM_BRANCHES'], gates=gates, mappers=mappers)
+                                          cfg['STAGE1']['NUM_BRANCHES'], gates=gates, adder=adder)
         self.stage3 = HighResolutionStage(cfg['STAGE3'], self.stage2.get_pre_stage_channels(),
-                                          cfg['STAGE2']['NUM_BRANCHES'], gates=gates, mappers=mappers)
+                                          cfg['STAGE2']['NUM_BRANCHES'], gates=gates, adder=adder)
         self.stage4 = HighResolutionStage(cfg['STAGE4'], self.stage3.get_pre_stage_channels(),
-                                          cfg['STAGE3']['NUM_BRANCHES'], gates=gates, mappers=mappers)
+                                          cfg['STAGE3']['NUM_BRANCHES'], gates=gates, adder=adder)
 
         last_inp_channels = int(np.sum(self.stage4.get_pre_stage_channels()))
         mod = [conv1x1(in_planes=last_inp_channels, out_planes=last_inp_channels, stride=1, bias=True),
@@ -517,8 +524,8 @@ class HighResolutionNet(nn.Module):
         return x
 
 
-def _hrnet(arch, pretrained, progress, gates=False, mappers=False, **kwargs):
-    model = HighResolutionNet(arch, gates=gates, mappers=mappers, **kwargs)
+def _hrnet(arch, pretrained, progress, gates=False, adder=False, **kwargs):
+    model = HighResolutionNet(arch, gates=gates, adder=adder, **kwargs)
     if pretrained:
         model_url = arch['url']
         state_dict = load_state_dict_from_url(model_url, progress=progress)
@@ -526,7 +533,7 @@ def _hrnet(arch, pretrained, progress, gates=False, mappers=False, **kwargs):
     return model
 
 
-def hrnet18(pretrained=True, progress=True, gates=False, mappers=False, **kwargs):
+def hrnet18(pretrained=True, progress=True, gates=False, adder=False, **kwargs):
     arch = {'url': 'https://opr0mq.dm.files.1drv.com/y4mIoWpP2n-LUohHHANpC0jrOixm1FZgO2OsUtP2DwIozH5RsoYVyv_De5wDgR6Xu'
                    'QmirMV3C0AljLeB-zQXevfLlnQpcNeJlT9Q8LwNYDwh3TsECkMTWXCUn3vDGJWpCxQcQWKONr5VQWO1hLEKPeJbbSZ6tgbWwJH'
                    'gHF7592HY7ilmGe39o5BhHz7P9QqMYLBts6V7QGoaKrr0PL3wvvR4w',
@@ -556,10 +563,10 @@ def hrnet18(pretrained=True, progress=True, gates=False, mappers=False, **kwargs
                        'BLOCK': 'BASIC',
                        'FUSE_METHOD': 'SUM'}
             }
-    return _hrnet(arch, pretrained, progress, gates=gates, mappers=mappers, **kwargs)
+    return _hrnet(arch, pretrained, progress, gates=gates, adder=adder, **kwargs)
 
 
-def hrnet32(pretrained=True, progress=True, gates=False, mappers=False, **kwargs):
+def hrnet32(pretrained=True, progress=True, gates=False, adder=False, **kwargs):
     arch = {'url': 'https://opr74a.dm.files.1drv.com/y4mKOuRSNGQQlp6wm_a9bF-UEQwp6a10xFCLhm4bqjDu6aSNW9yhDRM7qyx0vK0W'
                    'Th42gEaniUVm3h7pg0H-W0yJff5qQtoAX7Zze4vOsqjoIthp-FW3nlfMD0-gcJi8IiVrMWqVOw2N3MbCud6uQQrTaEAvAdNjt'
                    'jMpym1JghN-F060rSQKmgtq5R-wJe185IyW4-_c5_ItbhYpCyLxdqdEQ',
@@ -590,10 +597,10 @@ def hrnet32(pretrained=True, progress=True, gates=False, mappers=False, **kwargs
                        'FUSE_METHOD': 'SUM'}
             }
 
-    return _hrnet(arch, pretrained, progress, gates=gates, mappers=mappers, **kwargs)
+    return _hrnet(arch, pretrained, progress, gates=gates, adder=adder, **kwargs)
 
 
-def hrnet48(pretrained=True, progress=True, gates=False, mappers=False, **kwargs):
+def hrnet48(pretrained=True, progress=True, gates=False, adder=False, **kwargs):
     arch = {'url': 'https://optgaw.dm.files.1drv.com/y4mWNpya38VArcDInoPaL7GfPMgcop92G6YRkabO1QTSWkCbo7djk8BFZ6LK_KHH'
                    'IYE8wqeSAChU58NVFOZEvqFaoz392OgcyBrq_f8XGkusQep_oQsuQ7DPQCUrdLwyze_NlsyDGWot0L9agkQ-M_SfNr10ETlCF'
                    '5R7BdKDZdupmcMXZc-IE3Ysw1bVHdOH4l-XEbEKFAi6ivPUbeqlYkRMQ',
@@ -623,4 +630,4 @@ def hrnet48(pretrained=True, progress=True, gates=False, mappers=False, **kwargs
                        'BLOCK': 'BASIC',
                        'FUSE_METHOD': 'SUM'}
             }
-    return _hrnet(arch, pretrained, progress, gates=gates, mappers=mappers, **kwargs)
+    return _hrnet(arch, pretrained, progress, gates=gates, adder=adder, **kwargs)

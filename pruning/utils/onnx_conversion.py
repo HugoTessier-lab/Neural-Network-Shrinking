@@ -11,7 +11,7 @@ if __name__ == '__main__':
     from semantic_segmentation.networks.hrnet import hrnet18
     from pruning.pruner.pruner import Pruner
     from time import time
-    from pruning.pruner.custom_layers import Gate
+    from pruning.pruner.custom_operators import Gate
     import numpy as np
     import random
     from pruning.process.target_calculation import find_mask
