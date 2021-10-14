@@ -6,7 +6,7 @@ from torchvision.models.utils import load_state_dict_from_url
 
 __all__ = ['hrnet18', 'hrnet32', 'hrnet48']
 
-from pruning.pruner.custom_operators import Gate, ShortcutAdder, add
+from pruning.pruner.custom_operators import Gate, Adder, add
 
 model_urls = {
     'hrnet18_imagenet': 'https://opr0mq.dm.files.1drv.com/y4mIoWpP2n-LUohHHANpC0jrOixm1FZgO2OsUtP2DwIozH5RsoYVyv_De5w'
@@ -58,7 +58,7 @@ class BasicBlock(nn.Module):
         self.stride = stride
 
         if adder:
-            self.adder = ShortcutAdder(planes)
+            self.adder = Adder(planes)
         else:
             self.adder = add
         if gates:
@@ -114,7 +114,7 @@ class Bottleneck(nn.Module):
         self.stride = stride
 
         if adder:
-            self.adder = ShortcutAdder(planes * self.expansion)
+            self.adder = Adder(planes * self.expansion)
         else:
             self.adder = add
         if gates:
@@ -189,26 +189,22 @@ class FuseBlock(nn.Module):
             self.gate = Gate(num_inchannels[i])
         else:
             self.gate = None
+        self.adder = []
+        for j in range(1, self.num_branches):
+            if adder:
+                a = Adder(num_inchannels[i])
+            else:
+                a = add
+            self.adder.append(a)
         if adder:
-            self.adder = ShortcutAdder(num_inchannels[i])
-        else:
-            self.adder = add
+            self.adder = torch.nn.ModuleList(self.adder)
         self.resolution = None
 
     def forward(self, x):
         y = x[0] if self.i == 0 else self.fuse_layer[0](x[0])
-        added = False
         for j in range(1, self.num_branches):
-            print(self.i, j, len(self.gate.weight), y.shape, added)
             if self.i == j:
-                if isinstance(self.adder, ShortcutAdder):
-                    print(self.adder.in_channels, self.adder.in_channels.shape)
-                    print(self.adder.out_channels, self.adder.out_channels.shape)
-                    print(self.gate.weight, self.gate.weight.shape)
-                print('1', y.shape, x[j].shape)
-                y = self.adder(y, x[j])
-                print('2', y.shape)
-                added = True
+                y = self.adder[j-1](y, x[j])
             elif j > self.i:
                 if 0 in x[self.i].size():
                     if self.resolution is None:
@@ -225,16 +221,9 @@ class FuseBlock(nn.Module):
                     interpolation = F.interpolate(result,
                                                   size=[height_output, width_output],
                                                   mode='bilinear', align_corners=False)
-                    if self.i == 0 and not added:
-                        y = self.adder(interpolation, y)
-                        added = True
-                    else:
-                        print(interpolation.shape, y.shape)
-                        y = add(interpolation, y)
-                        added = True
+                    y = self.adder[j-1](interpolation, y)
             else:
-                y = add(y, self.fuse_layer[j](x[j]))
-                added = True
+                y = self.adder[j-1](y, self.fuse_layer[j](x[j]))
         y = F.relu(y)
         if self.gate is not None:
             y = self.gate(y)

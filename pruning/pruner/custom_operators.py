@@ -22,62 +22,6 @@ class Gate(nn.Module):
         return result
 
 
-# class MutableChannelMapper(nn.Module):
-#     def __init__(self, in_channels, out_channels):
-#         super(MutableChannelMapper, self).__init__()
-#         self.bias = None
-#         self.stride = 1
-#         self.padding = 0
-#         self.dilation = 1
-#         self.groups = 1
-#
-#         self.weight = nn.Parameter(torch.zeros(len(out_channels), len(in_channels), 1, 1), requires_grad=True)
-#         self.weight.data[torch.nonzero(out_channels)[:, 0], torch.nonzero(in_channels)[:, 0], 0, 0] = 1
-#
-#     def forward(self, x):
-#         return F.conv2d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
-
-
-# class ChannelMapper(nn.Module):
-#     def __init__(self, in_channels, out_channels):
-#         super(ChannelMapper, self).__init__()
-#         self.in_channels = in_channels
-#         self.out_channels = out_channels
-#
-#     def forward(self, x):
-#         if 0 in x.shape:
-#             return x
-#         if x.shape[1] != len(self.in_channels):
-#             raise ValueError
-#         if x.shape[1] == len(self.in_channels) == len(self.out_channels):
-#             return x
-#         else:
-#             x = x[:, torch.nonzero(self.in_channels)[:, 0], :, :]
-#             new_x = torch.zeros(x.shape[0], self.out_channels.shape[0], x.shape[2], x.shape[3]).to(x.device)
-#             new_x[:, torch.nonzero(self.out_channels)[:, 0], :, :] = x
-#             return new_x
-#
-#     def update(self, in_channels, out_channels):
-#         self.in_channels = in_channels
-#         self.out_channels = out_channels
-
-
-# def freeze_mapper(mutable):
-#     in_channels = torch.sum(mutable.weight.detach(), dim=(0, 2, 3))
-#     out_channels = torch.sum(mutable.weight.detach(), dim=(1, 2, 3))
-#     return ChannelMapper(in_channels, out_channels)
-
-
-# def unfreeze_mapper(mapper):
-#     return MutableChannelMapper(mapper.in_channels, mapper.out_channels)
-
-
-# def create_channel_mapper(channels):
-#     in_channels = torch.ones(channels)
-#     out_channels = torch.ones(channels)
-#     return ChannelMapper(in_channels, out_channels)
-
-
 def add(a, b):
     if 0 not in a.size() and 0 in b.size():
         return a
@@ -89,56 +33,97 @@ def add(a, b):
         return torch.Tensor([]).to(a.device)
 
 
-class ShortcutAdder(nn.Module):
+class Adder(nn.Module):
     def __init__(self, channels):
-        super(ShortcutAdder, self).__init__()
+        super(Adder, self).__init__()
 
-        self.in_channels = torch.linspace(1, channels, channels).long()
-        self.out_channels = torch.linspace(1, channels, channels).long()
+        self.in_channels_a = torch.linspace(0, channels - 1, channels).long()
+        self.out_channels_a = torch.linspace(0, channels - 1, channels).long()
+
+        self.in_channels_b = torch.linspace(0, channels - 1, channels).long()
+        self.out_channels_b = torch.linspace(0, channels - 1, channels).long()
+
+        self.channels = channels
+
+    @staticmethod
+    def single_input(i, in_channels, out_channels, channels):
+        if not (len(in_channels) == i.shape[1] and max(in_channels) == i.shape[1]):
+            i = i[:, in_channels, :, :]
+        if channels == i.shape[1]:
+            return i
+        else:
+            dims = i.shape
+            device = i.device
+            new = torch.zeros(dims[0], channels, dims[2], dims[3]).to(device)
+            new[:, out_channels, :, :] = i
+            return new
 
     def forward(self, x, shortcut_input):
-        if x.size() == shortcut_input.size():
-            return x + shortcut_input
-        if 0 in shortcut_input.size() and 0 not in x.size():
-            return x
-        elif 0 in shortcut_input.size() and 0 in x.size():
+        if 0 in x.shape and 0 in shortcut_input.shape:
             return torch.Tensor([]).to(x.device)
-        elif 0 not in shortcut_input.size() and 0 in x.size():
-            if 0 in self.out_channels:
-                print('CREATION')
-                x = torch.zeros(shortcut_input.shape[0], len(self.out_channels),
-                                shortcut_input.shape[2], shortcut_input.shape[3]).to(shortcut_input.device)
-                x[:, self.out_channels, :, :] = shortcut_input[:, self.in_channels, :, :]
-                return x
-            else:
-                return shortcut_input[:, self.in_channels, :, :]
-        else:
-            x[:, self.out_channels, :, :] = shortcut_input[:, self.in_channels, :, :]
+        if 0 not in x.shape and 0 in shortcut_input.shape:
+            return self.single_input(x, self.in_channels_a, self.out_channels_a, self.channels)
+        if 0 in x.shape and 0 not in shortcut_input.shape:
+            return self.single_input(shortcut_input, self.in_channels_b, self.out_channels_b, self.channels)
+
+        if not (len(self.in_channels_a) == x.shape[1] and max(self.in_channels_a) == len(self.in_channels_a)):
+            x = x[:, self.in_channels_a, :, :]
+        if not (len(self.in_channels_b) == shortcut_input.shape[1]
+                and max(self.in_channels_b) == len(self.in_channels_b)):
+            shortcut_input = shortcut_input[:, self.in_channels_b, :, :]
+
+        if x.shape[1] == self.channels and shortcut_input.shape[1] == self.channels:
+            return x + shortcut_input
+        elif x.shape[1] != self.channels and shortcut_input.shape[1] == self.channels:
+            shortcut_input[:, self.out_channels_a, :, :] += x
+            return shortcut_input
+        elif x.shape[1] == self.channels and shortcut_input.shape[1] != self.channels:
+            x[:, self.out_channels_b, :, :] += shortcut_input
             return x
+        else:
+            dims = x.shape
+            device = x.device
+            new = torch.zeros(dims[0], self.channels, dims[2], dims[3]).to(device)
+            new[:, self.out_channels_a, :, :] = x[:, self.in_channels_a, :, :]
+            new[:, self.out_channels_b, :, :] += shortcut_input[:, self.in_channels_b, :, :]
+            return new
 
-    def update(self, in_channels, out_channels):
-        self.in_channels = in_channels
-        self.out_channels = out_channels
+    def update(self, in_channels_a, out_channels_a, in_channels_b, out_channels_b, channels_number):
+        self.in_channels_a = in_channels_a
+        self.out_channels_a = out_channels_a
+        self.in_channels_b = in_channels_b
+        self.out_channels_b = out_channels_b
+        self.channels = channels_number
 
 
-class MutableShortcutAdder(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(MutableShortcutAdder, self).__init__()
+class MutableAdder(nn.Module):
+    class MappingConvolution(nn.Module):
+        def __init__(self, in_channels, out_channels):
+            super(MutableAdder.MappingConvolution, self).__init__()
+            self.weight = nn.Parameter(torch.zeros(len(out_channels), len(in_channels), 1, 1), requires_grad=True)
+            self.weight.data[out_channels, in_channels, 0, 0] = 1
 
-        self.bias = None
-        self.stride = 1
-        self.padding = 0
-        self.dilation = 1
-        self.groups = 1
+            self.bias = None
+            self.stride = 1
+            self.padding = 0
+            self.dilation = 1
+            self.groups = 1
 
-        self.weight = nn.Parameter(torch.zeros(len(out_channels), len(in_channels), 1, 1), requires_grad=True)
-        self.weight.data[torch.nonzero(out_channels)[:, 0], torch.nonzero(in_channels)[:, 0], 0, 0] = 1
+        def forward(self, x):
+            return F.conv2d(x, self.weight, self.bias,
+                            self.stride, self.padding, self.dilation, self.groups)
 
-    def forward(self, x, shorcut_input):
-        shorcut_input = F.conv2d(shorcut_input, self.weight, self.bias,
-                                 self.stride, self.padding, self.dilation, self.groups)
-        return x + shorcut_input
+    def __init__(self, in_channels_a, out_channels_a, in_channels_b, out_channels_b):
+        super(MutableAdder, self).__init__()
+
+        self.conv1 = MutableAdder.MappingConvolution(in_channels_a, out_channels_a)
+        self.conv2 = MutableAdder.MappingConvolution(in_channels_b, out_channels_b)
+
+    def forward(self, x, shortcut_input):
+        x = self.conv1(x)
+        shortcut_input = self.conv2(shortcut_input)
+        return x + shortcut_input
 
 
 def unfreeze_adder(adder):
-    return MutableShortcutAdder(adder.in_channels, adder.out_channels)
+    return MutableAdder(adder.in_channels_a, adder.out_channels_a, adder.in_channels_b, adder.out_channels_b)

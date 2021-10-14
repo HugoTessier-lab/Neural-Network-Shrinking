@@ -140,7 +140,7 @@ def random_cuts_and_rates_test(seed, device, dtype):
 
 def random_cuts_and_rates_filters(model, device):
     masks = []
-    for m in model.modules():
+    for n, m in model.named_modules():
         if hasattr(m, 'weight'):
             if isinstance(m, torch.nn.Conv2d):
                 draw = torch.rand(1).item()
@@ -174,31 +174,29 @@ def random_cuts_and_rates_test_filters(seed, device, dtype):
 
 
 if __name__ == '__main__':
-    dev = 'cuda'
+    dev = 'cpu'
     ty = torch.float32
-    # print('Same rate on all gates\n')
-    # rates = np.linspace(0, 1, 11)
-    # for r in rates:
-    #     constant_rate_test(r, dev, ty)
-    #
-    # print('\nRandom rate on each gates (uniformly distributed)\n')
-    # seeds = [i for i in range(10)]
-    # for s in seeds:
-    #     random_rate_test(s, dev, ty)
-    #
-    # print('\nRandomly cut gates (probability 3%)\n')
-    # seeds = [i for i in range(10)]
-    # for s in seeds:
-    #     random_cuts_test(s, dev, ty)
+    print('Same rate on all gates\n')
+    rates = np.linspace(0, 1, 11)
+    for r in rates:
+        constant_rate_test(r, dev, ty)
 
-    # print('\nRandom cut (probability 3%) or random rate (uniformly distributed) on each gates\n')
-    # seeds = [i for i in range(0, 10)]
-    # for s in seeds:
-    #     random_cuts_and_rates_test(s, dev, ty)
+    print('\nRandom rate on each gates (uniformly distributed)\n')
+    seeds = [i for i in range(10)]
+    for s in seeds:
+        random_rate_test(s, dev, ty)
 
-    # print('\nRandom cut (probability 3%) or random rate (uniformly distributed) on each convolutional layer\n')
-    # seeds = [i for i in range(0, 10)]
-    # for s in seeds:
-    #     random_cuts_and_rates_test_filters(s, dev, ty)
+    print('\nRandomly cut gates (probability 3%)\n')
+    seeds = [i for i in range(10)]
+    for s in seeds:
+        random_cuts_test(s, dev, ty)
 
-    random_cuts_and_rates_test(1, dev, ty)
+    print('\nRandom cut (probability 3%) or random rate (uniformly distributed) on each gates\n')
+    seeds = [i for i in range(0, 10)]
+    for s in seeds:
+        random_cuts_and_rates_test(s, dev, ty)
+
+    print('\nRandom cut (probability 3%) or random rate (uniformly distributed) on each convolutional layer\n')
+    seeds = [i for i in range(0, 10)]
+    for s in seeds:
+        random_cuts_and_rates_test_filters(s, dev, ty)

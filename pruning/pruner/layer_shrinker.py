@@ -35,17 +35,31 @@ def shrink_gate(gate, mock):
 
 
 def shrink_identity(index, mock):
-    weight_mask = mock.weight.grad != 0
-    preserved_filters = weight_mask.float().mean(dim=(1, 2, 3)) != 0
-    preserved_kernels = weight_mask.float().mean(dim=(0, 2, 3)) != 0
+    def get_channels(weight):
+        weight_mask = weight.grad != 0
+        preserved_filters = weight_mask.float().mean(dim=(1, 2, 3)) != 0
+        preserved_kernels = weight_mask.float().mean(dim=(0, 2, 3)) != 0
 
-    weight = mock.weight.data * weight_mask
-    weight = weight[preserved_filters]
-    weight = weight[:, preserved_kernels]
+        weight = weight.data * weight_mask
+        weight = weight[preserved_filters]
+        weight = weight[:, preserved_kernels]
 
-    in_channels = torch.sum(weight, dim=(0, 2, 3))
-    out_channels = torch.sum(weight, dim=(1, 2, 3))
+        in_channels = torch.sum(weight, dim=(0, 2, 3))
+        out_channels = torch.sum(weight, dim=(1, 2, 3))
+        channels = len(out_channels)
+        in_channels = torch.nonzero(in_channels)[:, 0]
+        out_channels = torch.nonzero(out_channels)[:, 0]
+        return in_channels, out_channels, channels
 
-    in_channels = torch.nonzero(in_channels)[:, 0]
-    out_channels = torch.nonzero(out_channels)[:, 0]
-    index.update(in_channels, out_channels)
+    in_channels_a, out_channels_a, channels_a = get_channels(mock.conv1.weight)
+    in_channels_b, out_channels_b, channels_b = get_channels(mock.conv2.weight)
+    if channels_a == 0 and channels_b != 0:
+        channels_number = channels_b
+    elif channels_a != 0 and channels_b == 0:
+        channels_number = channels_a
+    else:
+        if channels_a != channels_b:
+            raise ValueError
+        channels_number = channels_a
+
+    index.update(in_channels_a, out_channels_a, in_channels_b, out_channels_b, channels_number)
