@@ -28,11 +28,19 @@ class Mock:
         self.mock = copy.deepcopy(model)
         self.mock = self.mock.type(dtype)
         self.mock.eval()
+        self.remove_activations(self.mock)
         self.remove_bias()
         self.neutralize_batchnorms()
         self.adjust_weights()
         self.unfreeze_adders(self.mock, dtype)
         self.insert_hooks()
+
+    def remove_activations(self, network):
+        for n, m in network.named_children():
+            if isinstance(m, nn.ReLU):
+                setattr(network, n, nn.Identity())
+            else:
+                self.remove_activations(m)
 
     def remove_bias(self):
         for m in self.mock.modules():

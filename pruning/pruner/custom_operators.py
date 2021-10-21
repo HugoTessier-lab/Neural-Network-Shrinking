@@ -75,17 +75,17 @@ class Adder(nn.Module):
         if x.shape[1] == self.channels and shortcut_input.shape[1] == self.channels:
             return x + shortcut_input
         elif x.shape[1] != self.channels and shortcut_input.shape[1] == self.channels:
-            shortcut_input[:, self.out_channels_a, :, :] += x
+            shortcut_input[:, self.out_channels_a, :, :].add_(x)
             return shortcut_input
         elif x.shape[1] == self.channels and shortcut_input.shape[1] != self.channels:
-            x[:, self.out_channels_b, :, :] += shortcut_input
+            x[:, self.out_channels_b, :, :].add_(shortcut_input)
             return x
         else:
             dims = x.shape
             device = x.device
             new = torch.zeros(dims[0], self.channels, dims[2], dims[3]).to(device)
-            new[:, self.out_channels_a, :, :] = x[:, self.in_channels_a, :, :]
-            new[:, self.out_channels_b, :, :] += shortcut_input[:, self.in_channels_b, :, :]
+            new[:, self.out_channels_a, :, :].add_( x[:, self.in_channels_a, :, :])
+            new[:, self.out_channels_b, :, :].add_(shortcut_input[:, self.in_channels_b, :, :])
             return new
 
     def update(self, in_channels_a, out_channels_a, in_channels_b, out_channels_b, channels_number):
