@@ -29,9 +29,9 @@ def train_model(checkpoint, dataset, epochs, criterion, metrics, output_path, de
             global_loss += loss.item()
 
             message = f'\rTrain ({i + 1}/{len(dataset["train"])}) -> '
-            message += f'{criterion.name} loss = {round(float(global_loss) / (i + 1), 3)}, '
+            message += f'{criterion.name} loss = {round(float(global_loss) / ((i + 1) * dataset["train"].batch_size), 3)}, '
             for k, m in enumerate(metrics):
-                message += f'{m.name} = {round(float(results[k]) / (i + 1), 3)}\t'
+                message += f'{m.name} = {round(float(results[k]) / ((i + 1) * dataset["train"].batch_size), 3)}\t'
             message += '           '
             sys.stdout.write(message)
 
@@ -53,17 +53,17 @@ def train_model(checkpoint, dataset, epochs, criterion, metrics, output_path, de
                 global_loss += loss.item()
 
                 message = f'\rTest ({i + 1}/{len(dataset["test"])}) -> '
-                message += f'{criterion.name} loss = {round(float(global_loss) / (i + 1), 3)}, '
+                message += f'{criterion.name} loss = {round(float(global_loss) / ((i + 1) * dataset["test"].batch_size), 3)}, '
                 for k, m in enumerate(metrics):
-                    message += f'{m.name} = {round(float(results[k]) / (i + 1), 3)}\t'
+                    message += f'{m.name} = {round(float(results[k]) / ((i + 1) * dataset["test"].batch_size), 3)}\t'
                 message += '           '
                 sys.stdout.write(message)
 
         with open(os.path.join(output_path, 'results.txt'), 'a') as f:
             message = f'Epoch {e + 1}/{epochs} -> '
-            message += f'{criterion.name} loss = {float(global_loss) / len(dataset["test"])}, '
+            message += f'{criterion.name} loss = {float(global_loss) / (len(dataset["test"]) * dataset["test"].batch_size)}, '
             for k, m in enumerate(metrics):
-                message += f'{m.name} = {float(results[k]) / len(dataset["test"])}\t'
+                message += f'{m.name} = {float(results[k]) / (len(dataset["test"]) * dataset["test"].batch_size)}\t'
             message += '\n'
             f.write(message)
 

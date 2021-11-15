@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from pruning.pruner.custom_operators import Gate, Adder, MutableAdder, unfreeze_adder, EmptyLayer
 import copy
-from pruning.pruner.layer_shrinker import shrink_identity, shrink_gate, shrink_bn, shrink_conv
+from pruning.pruner.layer_shrinker import shrink_identity, shrink_gate, shrink_bn, shrink_conv, shrink_linear
 
 
 def backward_hook(self, input, output):
@@ -142,12 +142,34 @@ class Pruner:
     def get_params_count(self):
         return self.count
 
+    def get_mask(self):
+        masks = []
+        for m in self.masked_mock.modules():
+            if not isinstance(m, MutableAdder) and not isinstance(m, MutableAdder.MappingConvolution):
+                if hasattr(m, 'weight'):
+                    if m.weight.grad is not None:
+                        masks.append((m.weight.data != 0) & (m.weight.grad != 0))
+                    else:
+                        masks.append(m.weight.data != 0)
+                if hasattr(m, 'removed_bias'):
+                    if m.weight.grad is not None:
+                        weights = ((m.weight.data != 0) & (m.weight.grad != 0))
+                    else:
+                        weights = (m.weight.data != 0)
+                    if len(weights.shape) > 1:
+                        masks.append(torch.mean(weights.float(), dim=[i for i in range(1, len(weights.shape))]) != 0)
+                    else:
+                        masks.append(weights)
+        return masks
+
     def _shrink_model(self, model, mock):
         for (m, m_mock) in zip(model.children(), mock.children()):
             if isinstance(m, nn.Conv2d):
                 shrink_conv(m, m_mock)
             elif isinstance(m, nn.BatchNorm2d):
                 shrink_bn(m, m_mock)
+            elif isinstance(m, nn.Linear):
+                shrink_linear(m, m_mock)
             elif isinstance(m, Gate):
                 shrink_gate(m, m_mock)
             elif isinstance(m, Adder):

@@ -63,3 +63,17 @@ def shrink_identity(index, mock):
         channels_number = channels_a
 
     index.update(in_channels_a, out_channels_a, in_channels_b, out_channels_b, channels_number)
+
+
+def shrink_linear(lin, mock):
+    weight_mask = (mock.weight.data != 0) & (mock.weight.grad != 0)
+    lin.weight.data = lin.weight.data * weight_mask
+    preserved_filters = (lin.weight.data.abs().mean(dim=1) != 0)
+    preserved_kernels = lin.weight.data.abs().mean(dim=0) != 0
+
+    if True not in preserved_kernels:
+        preserved_filters.fill_(False)
+    lin.weight.data = lin.weight.data[preserved_filters]
+    lin.weight.data = lin.weight.data[:, preserved_kernels]
+    if lin.bias is not None:
+        lin.bias.data = lin.bias.data[preserved_filters]

@@ -204,7 +204,7 @@ class FuseBlock(nn.Module):
         y = x[0] if self.i == 0 else self.fuse_layer[0](x[0])
         for j in range(1, self.num_branches):
             if self.i == j:
-                y = self.adder[j-1](y, x[j])
+                y = self.adder[j - 1](y, x[j])
             elif j > self.i:
                 if 0 in x[self.i].size():
                     if self.resolution is None:
@@ -218,12 +218,12 @@ class FuseBlock(nn.Module):
                     self.resolution = [width_output, height_output]
                 result = self.fuse_layer[j](x[j])
                 if 0 not in result.size():
-                    interpolation = F.interpolate(result,
-                                                  size=[height_output, width_output],
-                                                  mode='bilinear', align_corners=False)
-                    y = self.adder[j-1](interpolation, y)
+                    result = F.interpolate(result,
+                                           size=[height_output, width_output],
+                                           mode='bilinear', align_corners=False)
+                y = self.adder[j - 1](result, y)
             else:
-                y = self.adder[j-1](y, self.fuse_layer[j](x[j]))
+                y = self.adder[j - 1](y, self.fuse_layer[j](x[j]))
         y = F.relu(y)
         if self.gate is not None:
             y = self.gate(y)
