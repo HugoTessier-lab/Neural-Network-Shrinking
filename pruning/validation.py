@@ -6,6 +6,8 @@ import torch
 import numpy as np
 import random
 
+errors = 0
+
 
 def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
@@ -18,7 +20,7 @@ def set_seed(seed=0):
 
 def test(mask_method, model, size, device, dtype):
     model(torch.rand(size).to(device))
-    pruner = Pruner(model, size, device, dtype=dtype)
+    pruner = Pruner(model, size, device, dtype=dtype, remove_biases=True)
     mask = mask_method(model, device)
     pruner.apply_mask(mask)
     unpruned_parameters_count = len(torch.cat([i.flatten() for i in model.parameters()]))
@@ -29,6 +31,8 @@ def test(mask_method, model, size, device, dtype):
     pruned_parameters_count = len(torch.cat([i.flatten() for i in model.parameters()]))
     print('\tPruned parameters count : ', pruned_parameters_count)
     if predicted_pruned_parameters_count != pruned_parameters_count:
+        global errors
+        errors += 1
         print('\t\tWARNING : discrepancy in prediction !')
         print('\t\tDifference between shrunken and predicted : ',
               pruned_parameters_count - predicted_pruned_parameters_count)
@@ -50,6 +54,9 @@ def constant_rate_mask(rate):
                     masks.append(torch.Tensor(mask).to(device))
                 else:
                     masks.append(torch.ones(m.weight.shape).to(device))
+            if hasattr(m, 'bias'):
+                if m.bias is not None:
+                    masks.append(torch.ones(m.bias.shape).to(device))
         return masks
 
     return masker
@@ -71,6 +78,9 @@ def random_rate_mask(seed):
                     masks.append(torch.Tensor(mask).to(device))
                 else:
                     masks.append(torch.ones(m.weight.shape).to(device))
+            if hasattr(m, 'bias'):
+                if m.bias is not None:
+                    masks.append(torch.ones(m.bias.shape).to(device))
         return masks
 
     return masker
@@ -92,6 +102,9 @@ def random_cuts(seed):
                     masks.append(torch.Tensor(mask).to(device))
                 else:
                     masks.append(torch.ones(m.weight.shape).to(device))
+            if hasattr(m, 'bias'):
+                if m.bias is not None:
+                    masks.append(torch.ones(m.bias.shape).to(device))
         return masks
 
     return masker
@@ -118,6 +131,9 @@ def random_cuts_and_rates(seed):
                     masks.append(torch.Tensor(mask).to(device))
                 else:
                     masks.append(torch.ones(m.weight.shape).to(device))
+            if hasattr(m, 'bias'):
+                if m.bias is not None:
+                    masks.append(torch.ones(m.bias.shape).to(device))
         return masks
 
     return masker
@@ -144,6 +160,9 @@ def random_cuts_and_rates_filters(seed):
                     masks.append(torch.Tensor(mask).to(device))
                 else:
                     masks.append(torch.ones(m.weight.shape).to(device))
+            if hasattr(m, 'bias'):
+                if m.bias is not None:
+                    masks.append(torch.ones(m.bias.shape).to(device))
         return masks
 
     return masker
@@ -237,5 +256,6 @@ def test_resnet():
 
 
 if __name__ == '__main__':
-    # test_hrnet()
+    test_hrnet()
     test_resnet()
+    print('Reported errors : ', errors)

@@ -620,3 +620,5 @@ def hrnet48(pretrained=True, progress=True, gates=False, adder=False, **kwargs):
                        'FUSE_METHOD': 'SUM'}
             }
     return _hrnet(arch, pretrained, progress, gates=gates, adder=adder, **kwargs)
+
+# TODO: Fix pretrained networks' importation, because state dicts don't match !

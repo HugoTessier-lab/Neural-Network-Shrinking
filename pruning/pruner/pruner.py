@@ -16,20 +16,22 @@ def backward_hook(self, input, output):
 
 
 def forward_hook(self, input, output):
-    if isinstance(output, torch.Tensor):
-        return torch.tanh(output)
-    else:
-        return [torch.tanh(o) for o in output]
+    if isinstance(self, nn.Conv2d):
+        if isinstance(output, torch.Tensor):
+            return torch.log(output + 1)
+        else:
+            return [torch.log(o + 1) for o in output]
 
 
 class Mock:
-    def __init__(self, model, device, dtype):
+    def __init__(self, model, device, dtype, remove_biases):
         self.device = device
         self.mock = copy.deepcopy(model)
         self.mock = self.mock.type(dtype)
         self.mock.eval()
         self.remove_activations(self.mock)
-        self.remove_bias()
+        if remove_biases:
+            self.remove_bias()
         self.neutralize_batchnorms()
         self.adjust_weights()
         self.unfreeze_adders(self.mock, dtype)
@@ -52,8 +54,8 @@ class Mock:
     def neutralize_batchnorms(self):
         for m in self.mock.modules():
             if isinstance(m, nn.BatchNorm2d):
-                m.running_mean.fill_(0)
-                m.running_var.fill_(1)
+                m.reset_running_stats()
+                m.eval()
 
     def unfreeze_adders(self, network, dtype):
         for n, m in network.named_children():
@@ -66,8 +68,7 @@ class Mock:
 
     def adjust_weights(self):
         for p in self.mock.parameters():
-            p.data.abs_()
-            p.data += ((p.data == 0) * p.data.mean()).type(p.data.dtype)
+            p.data.fill_(1)
 
     def insert_hooks(self):
         for p in self.mock.modules():
@@ -82,12 +83,19 @@ class Mock:
                     and not isinstance(m, MutableAdder.MappingConvolution):
                 m.weight.data = (m.weight.data * mask[i]).type(m.weight.data.dtype)
                 i += 1
+            if hasattr(m, 'removed_bias'):
+                i += 1
+            else:
+                if hasattr(m, 'bias'):
+                    if m.bias is not None:
+                        m.bias.data = (m.bias.data * mask[i]).type(m.bias.data.dtype)
+                        i += 1
         return mock
 
 
 class Pruner:
-    def __init__(self, model, image_shape, device, dtype=torch.float32):
-        self.mock = Mock(model, device, dtype)
+    def __init__(self, model, image_shape, device, dtype=torch.float32, remove_biases=False):
+        self.mock = Mock(model, device, dtype, remove_biases=remove_biases)
         self.image_shape = image_shape
         self.device = device
         self.count = None
@@ -100,6 +108,9 @@ class Pruner:
             if hasattr(m, 'weight'):
                 m.weight.data = (m.weight.data * ((m.weight.data != 0) & (m.weight.grad != 0))
                                  ).type(m.weight.data.dtype)
+            if hasattr(m, 'bias'):
+                if m.bias is not None:
+                    m.bias.data = (m.bias.data * ((m.bias.data != 0) & (m.bias.grad != 0))).type(m.bias.data.dtype)
 
     def apply_mask(self, mask):
         self.masked_mock = self.mock.generate_masked_mock(mask)
@@ -136,6 +147,12 @@ class Pruner:
                                                 dim=[i for i in range(1, len(weights.shape))]) != 0).sum()
                     else:
                         unpruned += weights.sum()
+                if hasattr(m, 'bias'):
+                    if m.bias is not None:
+                        if m.bias.grad is not None:
+                            unpruned += ((m.bias.data != 0) & (m.bias.grad != 0)).sum()
+                        else:
+                            unpruned += (m.bias.data != 0).sum()
 
         return unpruned
 
@@ -160,6 +177,12 @@ class Pruner:
                         masks.append(torch.mean(weights.float(), dim=[i for i in range(1, len(weights.shape))]) != 0)
                     else:
                         masks.append(weights)
+                if hasattr(m, 'bias'):
+                    if m.bias is not None:
+                        if m.bias.grad is not None:
+                            masks.append((m.bias.data != 0) & (m.bias.grad != 0))
+                        else:
+                            masks.append(m.bias.data != 0)
         return masks
 
     def _shrink_model(self, model, mock):
@@ -195,3 +218,5 @@ class Pruner:
     def shrink_model(self, model):
         self._shrink_model(model, self.masked_mock)
         self.purge_empty_layers(model)
+        for p in model.parameters():
+            p.grad = torch.zeros(p.shape).to(p.device)
