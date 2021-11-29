@@ -518,7 +518,16 @@ def _hrnet(arch, pretrained, progress, gates=False, adder=False, **kwargs):
     if pretrained:
         model_url = arch['url']
         state_dict = load_state_dict_from_url(model_url, progress=progress)
-        model.load_state_dict(state_dict, strict=False)
+        model_state_dict = model.state_dict()
+        # model.load_state_dict(state_dict, strict=False)
+        new_state_dict = {}
+        for (k1, v1), (k2, v2) in zip(state_dict.items(), model_state_dict.items()):
+            if 'incre' not in k1:
+                new_state_dict[k2] = v1
+            else:
+                new_state_dict[k2] = v2
+
+        model.load_state_dict(new_state_dict)
     return model
 
 
@@ -620,5 +629,3 @@ def hrnet48(pretrained=True, progress=True, gates=False, adder=False, **kwargs):
                        'FUSE_METHOD': 'SUM'}
             }
     return _hrnet(arch, pretrained, progress, gates=gates, adder=adder, **kwargs)
-
-# TODO: Fix pretrained networks' importation, because state dicts don't match !
