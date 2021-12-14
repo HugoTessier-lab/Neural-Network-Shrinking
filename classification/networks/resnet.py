@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from pruning.pruner.custom_operators import Gate, Adder, add
+from pruning.pruner.custom_operators import Gate, Adder, add, freeze_adders
 
 
 class BasicBlock(nn.Module):
@@ -93,9 +93,9 @@ class Bottleneck(nn.Module):
         return out
 
 
-class ResNetModel(nn.Module):
+class ResNet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10, in_planes=64, gates=False, adder=False):
-        super(ResNetModel, self).__init__()
+        super(ResNet, self).__init__()
         self.in_planes = in_planes
         self.is_imagenet = num_classes == 1000
 
@@ -122,6 +122,9 @@ class ResNetModel(nn.Module):
         else:
             self.linear = nn.Linear(in_planes * 4 * block.expansion, num_classes)
 
+        self.frozen = False
+        self.pool_size = None
+
     def _make_layer(self, block, planes, num_blocks, stride, gates=False, adder=False):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
@@ -142,22 +145,16 @@ class ResNetModel(nn.Module):
         if self.layer4:
             out = self.layer4(out)
         if 0 not in out.size():
-            out = F.avg_pool2d(out, out.size()[3])
-            out = out.view(out.size(0), -1)
+            if not self.frozen:
+                self.pool_size = out.size()
+            out = F.avg_pool2d(out, self.pool_size[3])
+            out = out.view(self.pool_size[0], -1)
         out = self.linear(out)
         return out
 
-
-class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10, in_planes=64, gates=False, adder=False):
-        super(ResNet, self).__init__()
-        self.model = ResNetModel(block, num_blocks, num_classes, in_planes, gates, adder)
-        self.module = self.model
-        self.num_block = num_blocks
-        self.num_classes = num_classes
-
-    def forward(self, x):
-        return self.model(x)
+    def freeze(self, image_shape, value=True):
+        freeze_adders(self, image_shape)
+        self.frozen = value
 
 
 def resnet18(num_classes=10, in_planes=64, gates=False, adder=False):

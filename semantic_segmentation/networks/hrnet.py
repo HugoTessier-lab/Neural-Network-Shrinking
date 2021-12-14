@@ -6,7 +6,7 @@ from torchvision.models.utils import load_state_dict_from_url
 
 __all__ = ['hrnet18', 'hrnet32', 'hrnet48']
 
-from pruning.pruner.custom_operators import Gate, Adder, add
+from pruning.pruner.custom_operators import Gate, Adder, add, freeze_adders
 
 model_urls = {
     'hrnet18_imagenet': 'https://opr0mq.dm.files.1drv.com/y4mIoWpP2n-LUohHHANpC0jrOixm1FZgO2OsUtP2DwIozH5RsoYVyv_De5w'
@@ -199,6 +199,7 @@ class FuseBlock(nn.Module):
         if adder:
             self.adder = torch.nn.ModuleList(self.adder)
         self.resolution = None
+        self.frozen = False
 
     def forward(self, x):
         y = x[0] if self.i == 0 else self.fuse_layer[0](x[0])
@@ -206,21 +207,14 @@ class FuseBlock(nn.Module):
             if self.i == j:
                 y = self.adder[j - 1](y, x[j])
             elif j > self.i:
-                if 0 in x[self.i].size():
-                    if self.resolution is None:
+                if not self.frozen:
+                    if self.resolution is None and 0 in x[self.i].size():
                         print('ERROR : missing resolution information for interpolation')
                         raise RuntimeError
-                    width_output = self.resolution[0]
-                    height_output = self.resolution[1]
-                else:
-                    width_output = x[self.i].shape[-1]
-                    height_output = x[self.i].shape[-2]
-                    self.resolution = [width_output, height_output]
+                    self.resolution = (x[self.i].shape[2], x[self.i].shape[3])
                 result = self.fuse_layer[j](x[j])
                 if 0 not in result.size():
-                    result = F.interpolate(result,
-                                           size=[height_output, width_output],
-                                           mode='bilinear', align_corners=False)
+                    result = F.interpolate(result, size=self.resolution, mode='nearest')
                 y = self.adder[j - 1](result, y)
             else:
                 y = self.adder[j - 1](y, self.fuse_layer[j](x[j]))
@@ -228,6 +222,9 @@ class FuseBlock(nn.Module):
         if self.gate is not None:
             y = self.gate(y)
         return y
+
+    def freeze(self, value=True):
+        self.frozen = value
 
 
 class FuseStage(nn.Module):
@@ -431,6 +428,8 @@ class HighResolutionNet(nn.Module):
     def __init__(self, cfg, num_classes=19, gates=False, adder=False):
         super(HighResolutionNet, self).__init__()
 
+        self.frozen = False
+
         self.conv1 = conv3x3(3, 64, stride=2)
         self.bn1 = nn.BatchNorm2d(64)
         if gates:
@@ -462,11 +461,15 @@ class HighResolutionNet(nn.Module):
         mod.append(conv1x1(in_planes=last_inp_channels, out_planes=num_classes, stride=1, bias=True))
         self.last_layer = nn.Sequential(*mod)
         self.num_classes = num_classes
-        self.resolution = None
+
+        self.input_shape = None
+        self.input_device = None
+        self.intermediate_resolution = None
 
     def forward(self, x):
-        original_shape = x.shape[-2:]
-        original_device = x.device
+        if not self.frozen:
+            self.input_shape = x.shape[-2:]
+            self.input_device = x.device
         x = self.relu(self.bn1(self.conv1(x)))
         if self.gate1 is not None:
             x = self.gate1(x)
@@ -483,34 +486,39 @@ class HighResolutionNet(nn.Module):
         x1 = x[1]
         x2 = x[2]
         x3 = x[3]
-        # Upsampling
-        if 0 in x[0].size():
-            if self.resolution is None:
+
+        if not self.frozen:
+            if 0 in x[0].size() and self.intermediate_resolution is None:
                 print('ERROR : missing resolution information for interpolation')
                 raise RuntimeError
-            x0_h, x0_w = self.resolution[0], self.resolution[1]
-        else:
-            x0_h, x0_w = x[0].size(2), x[0].size(3)
-            self.resolution = [x0_h, x0_w]
+            self.intermediate_resolution = (x[0].shape[2], x[0].shape[3])
+
         if 0 not in x1.size():
-            x1 = F.interpolate(x1, size=(x0_h, x0_w), mode='bilinear', align_corners=False)
+            x1 = F.interpolate(x1, size=self.intermediate_resolution, mode='nearest')
         else:
-            x1 = torch.Tensor([]).to(original_device)
+            x1 = torch.Tensor([]).to(self.input_device)
         if 0 not in x2.size():
-            x2 = F.interpolate(x2, size=(x0_h, x0_w), mode='bilinear', align_corners=False)
+            x2 = F.interpolate(x2, size=self.intermediate_resolution, mode='nearest')
         else:
-            x2 = torch.Tensor([]).to(original_device)
+            x2 = torch.Tensor([]).to(self.input_device)
         if 0 not in x3.size():
-            x3 = F.interpolate(x3, size=(x0_h, x0_w), mode='bilinear', align_corners=False)
+            x3 = F.interpolate(x3, size=self.intermediate_resolution, mode='nearest')
         else:
-            x3 = torch.Tensor([]).to(original_device)
+            x3 = torch.Tensor([]).to(self.input_device)
 
         x = torch.cat([x[0], x1, x2, x3], 1)
 
         x = self.last_layer(x)
         if 0 not in x.size():
-            x = F.interpolate(x, size=original_shape, mode='bilinear', align_corners=False)
+            x = F.interpolate(x, size=self.input_shape, mode='nearest')
         return x
+
+    def freeze(self, image_shape, value=True):
+        freeze_adders(self, image_shape)
+        self.frozen = value
+        for m in self.modules():
+            if isinstance(m, FuseBlock):
+                m.freeze(value)
 
 
 def _hrnet(arch, pretrained, progress, gates=False, adder=False, **kwargs):

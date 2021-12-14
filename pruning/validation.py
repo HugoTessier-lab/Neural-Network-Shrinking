@@ -5,6 +5,7 @@ from pruning.pruner.custom_operators import Gate
 import torch
 import numpy as np
 import random
+from time import time
 
 errors = 0
 
@@ -19,7 +20,14 @@ def set_seed(seed=0):
 
 
 def test(mask_method, model, size, device, dtype):
-    model(torch.rand(size).to(device))
+    runs = 20
+    input_image = torch.rand(size).to(device)
+    for _ in range(5):
+        model(input_image)
+    before = time()
+    for _ in range(runs):
+        model(input_image)
+    time1 = (time() - before) / runs
     pruner = Pruner(model, size, device, dtype=dtype, remove_biases=True)
     mask = mask_method(model, device)
     pruner.apply_mask(mask)
@@ -37,7 +45,22 @@ def test(mask_method, model, size, device, dtype):
         print('\t\tDifference between shrunken and predicted : ',
               pruned_parameters_count - predicted_pruned_parameters_count)
         print('\t\tshrunken/predicted ratio ', round(pruned_parameters_count / predicted_pruned_parameters_count, 2))
-    model(torch.rand(size).to(device))
+    for _ in range(5):
+        model(input_image)
+    before = time()
+    for _ in range(runs):
+        model(input_image)
+    time2 = (time() - before) / runs
+    model.freeze(size)
+    for _ in range(5):
+        model(input_image)
+    before = time()
+    for _ in range(runs):
+        model(input_image)
+    time3 = (time() - before) / runs
+    print('Inference time before pruning : ', time1)
+    print('Inference time after pruning : ', time2)
+    print('Inference time after freezing : ', time3)
 
 
 def constant_rate_mask(rate):
@@ -256,6 +279,6 @@ def test_resnet():
 
 
 if __name__ == '__main__':
-    test_hrnet()
+    # test_hrnet()
     test_resnet()
     print('Reported errors : ', errors)
