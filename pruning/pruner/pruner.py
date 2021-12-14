@@ -94,7 +94,7 @@ class Mock:
 
 
 class Pruner:
-    def __init__(self, model, image_shape, device, dtype=torch.float32, remove_biases=False):
+    def __init__(self, model, image_shape, device, dtype=torch.float32, remove_biases=True):
         self.mock = Mock(model, device, dtype, remove_biases=remove_biases)
         self.image_shape = image_shape
         self.device = device
