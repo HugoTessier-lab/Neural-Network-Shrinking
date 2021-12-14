@@ -1,5 +1,9 @@
 import argparse
 
+def tuple_type(strings):
+    strings = strings.replace("(", "").replace(")", "")
+    mapped_int = map(int, strings.split(","))
+    return tuple(mapped_int)
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Neural Network Shrinking')
@@ -67,6 +71,9 @@ def parse_arguments():
     parser.add_argument('--device', type=str, default="cuda",
                         help="Device to use (default: 'cuda')")
 
+    parser.add_argument('--frozen_image_shape', type=tuple_type, default=(1, 3, 512, 1024),
+                        help="Image shape for which to freeze the network at the end (default: (1, 3, 512, 1024))")
+
     # CLASSIFICATION
 
     parser.add_argument('--input_feature_maps', type=int, default=64,
@@ -97,5 +104,24 @@ def parse_arguments():
 
     parser.add_argument("--pretrained", action="store_true", default=False,
                         help="Use pretrained models.")
+
+    # PRUNING METHOD
+
+    parser.add_argument('--pruning_method', type=str, default="none",
+                        help="Pruning method to use (default: 'none')")
+
+    parser.add_argument('--pruning_rate', type=float, default=0.,
+                        help='Pruning rate (default: 0.)')
+
+    parser.add_argument('--pruner_image_shape', type=tuple_type, default=(1, 3, 100, 100),
+                        help="Image shape for the pruner's inference (default: (1, 3, 100, 100))")
+
+    # SWD
+
+    parser.add_argument('--a_min', type=float, default=1e0,
+                        help='Starting value for the a of SWD (default: 1e0)')
+
+    parser.add_argument('--a_max', type=float, default=1e0,
+                        help='Final value for the a of SWD (default: 1e0)')
 
     return parser.parse_args()

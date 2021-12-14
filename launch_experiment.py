@@ -1,4 +1,5 @@
 from utils import args, checkpoint, optimizer, scheduler, train
+from pruning.methods.methods import get_pruning_method
 
 
 def main():
@@ -12,7 +13,7 @@ def main():
         print('Wrong task type.')
         raise ValueError
 
-    model = models.get_model(arguments)
+    model = models.get_model(arguments).to(arguments.device)
     optim = optimizer.get_optimizer(arguments, model)
     sched = scheduler.get_scheduler(arguments, optim)
     check = checkpoint.Checkpoint(model, optim, sched, arguments.device, arguments.distributed,
@@ -22,9 +23,14 @@ def main():
     met = [metrics.get_metric(n) for n in arguments.metrics]
     crit = criterion.get_criterion(arguments.criterion)
 
+    pruning_method = get_pruning_method(arguments, model, dataset)
+
     train.train_model(checkpoint=check, dataset=dataset,
                       epochs=arguments.epochs, criterion=crit, metrics=met,
-                      output_path=arguments.results_path, debug=arguments.debug)
+                      output_path=arguments.results_path, debug=arguments.debug,
+                      device=arguments.device,
+                      frozen_image_shape=arguments.frozen_image_shape,
+                      pruning_method=pruning_method)
 
 
 if __name__ == '__main__':

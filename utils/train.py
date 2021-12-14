@@ -3,7 +3,8 @@ import sys
 import os
 
 
-def train_model(checkpoint, dataset, epochs, criterion, metrics, output_path, debug):
+def train_model(checkpoint, dataset, epochs, criterion, metrics, output_path, debug, device,
+                frozen_image_shape, pruning_method=None):
     e = 0
     while e < epochs:
         e = checkpoint.store_model(e)
@@ -18,12 +19,16 @@ def train_model(checkpoint, dataset, epochs, criterion, metrics, output_path, de
             if debug:
                 if i != 0:
                     break
-            data, target = data.cuda(), target.cuda()
+            data, target = data.to(device), target.to(device)
             checkpoint.optimizer.zero_grad()
+
             output = checkpoint.model(data)
             loss = criterion(output, target.long())
             loss.backward()
+            if pruning_method:
+                pruning_method.step()
             checkpoint.optimizer.step()
+
             for k, m in enumerate(metrics):
                 results[k] += m(output, target)
             global_loss += loss.item()
@@ -44,10 +49,11 @@ def train_model(checkpoint, dataset, epochs, criterion, metrics, output_path, de
                 if debug:
                     if i != 0:
                         break
-                data, target = data.cuda(), target.cuda()
+                data, target = data.to(device), target.to(device)
 
                 output = checkpoint.model(data)
                 loss = criterion(output, target.long())
+
                 for k, m in enumerate(metrics):
                     results[k] += m(output, target)
                 global_loss += loss.item()
@@ -70,4 +76,7 @@ def train_model(checkpoint, dataset, epochs, criterion, metrics, output_path, de
         e += 1
         checkpoint.scheduler.step()
 
+    checkpoint.model.freeze(frozen_image_shape)
+    if pruning_method:
+        pruning_method.prune()
     checkpoint.store_model(epochs)

@@ -184,7 +184,7 @@ def freeze_adders(model, image_shape):
         for n, m in network.named_children():
             if isinstance(m, Adder):
                 if 0 in m.output_image_shape:
-                    setattr(network, n, EmptyLayer())
+                    setattr(network, n, EmptyLayer().to(m.device))
                 else:
                     setattr(network, n,
                             FrozenAdder(m.in_channels_a, m.out_channels_a,
@@ -193,6 +193,9 @@ def freeze_adders(model, image_shape):
                                         m.output_image_shape, m.device))
             else:
                 freeze_adders_(m)
-
-    model(torch.zeros(image_shape))
+    device = None
+    for p in model.parameters():
+        device = p.device
+        break
+    model(torch.zeros(image_shape).to(device))
     freeze_adders_(model)
