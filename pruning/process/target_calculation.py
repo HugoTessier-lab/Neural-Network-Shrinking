@@ -5,7 +5,7 @@ def generate_mask(network, pruning_criterion):
     mask = []
     for mod in network.modules():
         if hasattr(mod, 'weight'):
-            mask.append(pruning_criterion.get_module_mask(mod))
+            mask.extend(pruning_criterion.get_module_mask(mod))
     return mask
 
 
