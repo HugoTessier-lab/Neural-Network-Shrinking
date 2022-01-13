@@ -279,6 +279,6 @@ def test_resnet():
 
 
 if __name__ == '__main__':
-    # test_hrnet()
+    test_hrnet()
     test_resnet()
     print('Reported errors : ', errors)

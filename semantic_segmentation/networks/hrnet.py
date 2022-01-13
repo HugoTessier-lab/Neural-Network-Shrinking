@@ -211,7 +211,8 @@ class FuseBlock(nn.Module):
                     if self.resolution is None and 0 in x[self.i].size():
                         print('ERROR : missing resolution information for interpolation')
                         raise RuntimeError
-                    self.resolution = (x[self.i].shape[2], x[self.i].shape[3])
+                    if 0 not in x[self.i].shape:
+                        self.resolution = (x[self.i].shape[2], x[self.i].shape[3])
                 result = self.fuse_layer[j](x[j])
                 if 0 not in result.size():
                     result = F.interpolate(result, size=self.resolution, mode='nearest')
@@ -491,7 +492,8 @@ class HighResolutionNet(nn.Module):
             if 0 in x[0].size() and self.intermediate_resolution is None:
                 print('ERROR : missing resolution information for interpolation')
                 raise RuntimeError
-            self.intermediate_resolution = (x[0].shape[2], x[0].shape[3])
+            if 0 not in x[0].shape:
+                self.intermediate_resolution = (x[0].shape[2], x[0].shape[3])
 
         if 0 not in x1.size():
             x1 = F.interpolate(x1, size=self.intermediate_resolution, mode='nearest')

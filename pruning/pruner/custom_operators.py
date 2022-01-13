@@ -134,15 +134,21 @@ class FrozenAdder(nn.Module):
                  input_a_shape, input_b_shape, output_image_shape, device):
         super(FrozenAdder, self).__init__()
 
-        self.skip_gather_a = torch.equal(in_channels_a,
-                                         torch.linspace(0, input_a_shape[1] - 1, input_a_shape[1], dtype=torch.int64))
+        if 0 not in input_a_shape:
+            self.skip_gather_a = torch.equal(in_channels_a, torch.linspace(0, input_a_shape[1] - 1, input_a_shape[1],
+                                                                           dtype=torch.int64))
+        else:
+            self.skip_gather_a = True
         if not self.skip_gather_a:
             gather_index_a = in_channels_a.view(1, in_channels_a.shape[0], 1, 1)
             self.gather_index_a = gather_index_a.expand(output_image_shape[0], -1,
                                                         output_image_shape[2], output_image_shape[3])
 
-        self.skip_gather_b = torch.equal(in_channels_b,
-                                         torch.linspace(0, input_b_shape[1] - 1, input_b_shape[1], dtype=torch.int64))
+        if 0 not in input_b_shape:
+            self.skip_gather_b = torch.equal(in_channels_b, torch.linspace(0, input_b_shape[1] - 1, input_b_shape[1],
+                                                                           dtype=torch.int64))
+        else:
+            self.skip_gather_b = True
         if not self.skip_gather_b:
             gather_index_b = in_channels_b.view(1, in_channels_b.shape[0], 1, 1)
             self.gather_index_b = gather_index_b.expand(output_image_shape[0], -1,
@@ -193,6 +199,7 @@ def freeze_adders(model, image_shape):
                                         m.output_image_shape, m.device))
             else:
                 freeze_adders_(m)
+
     device = None
     for p in model.parameters():
         device = p.device
