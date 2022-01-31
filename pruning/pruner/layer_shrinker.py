@@ -27,13 +27,6 @@ def shrink_bn(bn, mock):
     bn.running_var = bn.running_var[preserved_filters]
 
 
-def shrink_gate(gate, mock):
-    weight_mask = (mock.weight.data != 0) & (mock.weight.grad != 0)
-    gate.weight.data = gate.weight.data * weight_mask
-    preserved_filters = (gate.weight.data.abs() != 0)
-    gate.weight.data = gate.weight.data[preserved_filters]
-
-
 def shrink_identity(index, mock):
     def get_channels(weight):
         weight_mask = weight.grad != 0

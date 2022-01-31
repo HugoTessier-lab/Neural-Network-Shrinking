@@ -12,16 +12,6 @@ class EmptyLayer(nn.Module):
         return torch.Tensor([]).to(x.device)
 
 
-class Gate(nn.Module):
-    def __init__(self, channels):
-        super(Gate, self).__init__()
-        self.weight = nn.Parameter(torch.ones(channels), requires_grad=True)
-
-    def forward(self, x):
-        result = x * self.weight[None, :, None, None]
-        return result
-
-
 def add(a, b):
     if 0 not in a.size() and 0 in b.size():
         return a

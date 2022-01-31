@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from pruning.pruner.custom_operators import Gate, Adder, MutableAdder, unfreeze_adder, EmptyLayer
+from pruning.pruner.custom_operators import Adder, MutableAdder, unfreeze_adder, EmptyLayer
 import copy
-from pruning.pruner.layer_shrinker import shrink_identity, shrink_gate, shrink_bn, shrink_conv, shrink_linear
+from pruning.pruner.layer_shrinker import shrink_identity, shrink_bn, shrink_conv, shrink_linear
 
 
 def backward_hook(self, input, output):
@@ -193,8 +193,6 @@ class Pruner:
                 shrink_bn(m, m_mock)
             elif isinstance(m, nn.Linear):
                 shrink_linear(m, m_mock)
-            elif isinstance(m, Gate):
-                shrink_gate(m, m_mock)
             elif isinstance(m, Adder):
                 shrink_identity(m, m_mock)
             else:
