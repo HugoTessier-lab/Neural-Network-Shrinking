@@ -20,9 +20,10 @@ def set_seed(seed=0):
 
 
 def test(mask_method, model, size, device, dtype):
+    warmup = 5
     runs = 20
     input_image = torch.rand(size).to(device)
-    for _ in range(5):
+    for _ in range(warmup):
         model(input_image)
     before = time()
     for _ in range(runs):
@@ -45,7 +46,7 @@ def test(mask_method, model, size, device, dtype):
         print('\t\tDifference between shrunken and predicted : ',
               pruned_parameters_count - predicted_pruned_parameters_count)
         print('\t\tshrunken/predicted ratio ', round(pruned_parameters_count / predicted_pruned_parameters_count, 2))
-    for _ in range(5):
+    for _ in range(warmup):
         model(input_image)
     before = time()
     for _ in range(runs):
@@ -192,7 +193,7 @@ def random_cuts_and_rates_filters(seed):
 
 
 def test_hrnet():
-    input_size = (1, 3, 100, 100)
+    input_size = (1, 3, 64, 64)
     print('On HRNet-18\n')
     print('Same rate on all BNs\n')
     rates = np.linspace(0, 1, 11)

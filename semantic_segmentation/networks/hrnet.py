@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models.utils import load_state_dict_from_url
+import math
 
 __all__ = ['hrnet18', 'hrnet32', 'hrnet48']
 
@@ -25,6 +26,13 @@ model_urls = {
                               '8BFZ6LK_KHHIYE8wqeSAChU58NVFOZEvqFaoz392OgcyBrq_f8XGkusQep_oQsuQ7DPQCUrdLwyze_NlsyDGWo'
                               't0L9agkQ-M_SfNr10ETlCF5R7BdKDZdupmcMXZc-IE3Ysw1bVHdOH4l-XEbEKFAi6ivPUbeqlYkRMQ'
 }
+
+
+def upsample(x, scale_factor):
+    if 0 in x.size():
+        return torch.tensor([]).to(x.device)
+    else:
+        return F.interpolate(x, scale_factor=scale_factor, mode='nearest')
 
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1, bias=False):
@@ -166,8 +174,6 @@ class FuseBlock(nn.Module):
             self.adder.append(a)
         if adder:
             self.adder = torch.nn.ModuleList(self.adder)
-        self.resolution = None
-        self.frozen = False
 
     def forward(self, x):
         y = x[0] if self.i == 0 else self.fuse_layer[0](x[0])
@@ -175,23 +181,13 @@ class FuseBlock(nn.Module):
             if self.i == j:
                 y = self.adder[j - 1](y, x[j])
             elif j > self.i:
-                if not self.frozen:
-                    if self.resolution is None and 0 in x[self.i].size():
-                        print('ERROR : missing resolution information for interpolation')
-                        raise RuntimeError
-                    if 0 not in x[self.i].shape:
-                        self.resolution = (x[self.i].shape[2], x[self.i].shape[3])
                 result = self.fuse_layer[j](x[j])
-                if 0 not in result.size():
-                    result = F.interpolate(result, size=self.resolution, mode='nearest')
+                result = upsample(result, scale_factor=math.pow(2, j - self.i))
                 y = self.adder[j - 1](result, y)
             else:
                 y = self.adder[j - 1](y, self.fuse_layer[j](x[j]))
         y = F.relu(y)
         return y
-
-    def freeze(self, value=True):
-        self.frozen = value
 
 
 class FuseStage(nn.Module):
@@ -386,9 +382,6 @@ class ResNetStage(nn.Module):
 class HighResolutionNet(nn.Module):
     def __init__(self, cfg, num_classes=19, adder=False):
         super(HighResolutionNet, self).__init__()
-
-        self.frozen = False
-
         self.conv1 = conv3x3(3, 64, stride=2)
         self.bn1 = nn.BatchNorm2d(64)
         self.conv2 = conv3x3(64, 64, stride=2)
@@ -411,14 +404,11 @@ class HighResolutionNet(nn.Module):
             conv1x1(in_planes=last_inp_channels, out_planes=num_classes, stride=1, bias=True))
         self.num_classes = num_classes
 
-        self.input_shape = None
-        self.input_device = None
-        self.intermediate_resolution = None
-
     def forward(self, x):
-        if not self.frozen:
-            self.input_shape = x.shape[-2:]
-            self.input_device = x.device
+        if not (((x.size(2) & (x.size(2) - 1) == 0) and x.size(2) != 0)
+                and ((x.size(3) & (x.size(3) - 1) == 0) and x.size(3) != 0)):
+            print('Error: image resolution is not a power of two!')
+            raise ValueError
         x = self.relu(self.bn1(self.conv1(x)))
         x = self.relu(self.bn2(self.conv2(x)))
         x = self.layer1(x)
@@ -432,39 +422,18 @@ class HighResolutionNet(nn.Module):
         x2 = x[2]
         x3 = x[3]
 
-        if not self.frozen:
-            if 0 in x[0].size() and self.intermediate_resolution is None:
-                print('ERROR : missing resolution information for interpolation')
-                raise RuntimeError
-            if 0 not in x[0].shape:
-                self.intermediate_resolution = (x[0].shape[2], x[0].shape[3])
-
-        if 0 not in x1.size():
-            x1 = F.interpolate(x1, size=self.intermediate_resolution, mode='nearest')
-        else:
-            x1 = torch.Tensor([]).to(self.input_device)
-        if 0 not in x2.size():
-            x2 = F.interpolate(x2, size=self.intermediate_resolution, mode='nearest')
-        else:
-            x2 = torch.Tensor([]).to(self.input_device)
-        if 0 not in x3.size():
-            x3 = F.interpolate(x3, size=self.intermediate_resolution, mode='nearest')
-        else:
-            x3 = torch.Tensor([]).to(self.input_device)
+        x1 = upsample(x1, scale_factor=2)
+        x2 = upsample(x2, scale_factor=4)
+        x3 = upsample(x3, scale_factor=8)
 
         x = torch.cat([x[0], x1, x2, x3], 1)
 
         x = self.last_layer(x)
-        if 0 not in x.size():
-            x = F.interpolate(x, size=self.input_shape, mode='nearest')
+        x = upsample(x, scale_factor=4)
         return x
 
     def freeze(self, image_shape, value=True):
         freeze_adders(self, image_shape)
-        self.frozen = value
-        for m in self.modules():
-            if isinstance(m, FuseBlock):
-                m.freeze(value)
 
 
 def _hrnet(arch, pretrained, progress, adder=False, **kwargs):

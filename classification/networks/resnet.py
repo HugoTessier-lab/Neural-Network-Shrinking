@@ -81,8 +81,6 @@ class ResNet(nn.Module):
         else:  # CIFAR
             self.conv1 = nn.Conv2d(3, in_planes, kernel_size=3, stride=1, padding=1, bias=False)
 
-        size = 224 if self.is_imagenet else 32
-        self.post_conv1_dim = (size, size)
         self.layer1 = self._make_layer(block, in_planes, num_blocks[0], stride=1, adder=adder)
         self.layer2 = self._make_layer(block, in_planes * 2, num_blocks[1], stride=2, adder=adder)
         self.layer3 = self._make_layer(block, in_planes * 4, num_blocks[2], stride=2, adder=adder)
