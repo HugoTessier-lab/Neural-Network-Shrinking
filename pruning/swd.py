@@ -1,7 +1,7 @@
 import math
-from pruning.pruner.pruner import Pruner
-from pruning.process.pruning_criterion import BatchNormGlobal
-from pruning.process.target_calculation import find_mask
+from shrinking.pruner import Pruner
+from pruning.pruning_criterion import BatchNormGlobal
+from pruning.target_calculation import find_mask
 
 
 class SWD:

@@ -7,7 +7,7 @@ import math
 
 __all__ = ['hrnet18', 'hrnet32', 'hrnet48']
 
-from pruning.pruner.custom_operators import Adder, add, freeze_adders
+from shrinking.custom_operators import Adder, add, freeze_adders
 
 model_urls = {
     'hrnet18_imagenet': 'https://opr0mq.dm.files.1drv.com/y4mIoWpP2n-LUohHHANpC0jrOixm1FZgO2OsUtP2DwIozH5RsoYVyv_De5w'

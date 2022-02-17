@@ -1,4 +1,4 @@
-from pruning.methods.swd import SWD
+from pruning.swd import SWD
 
 
 def get_pruning_method(args, model, dataset):

@@ -1,4 +1,4 @@
-from pruning.pruner.pruner import Pruner
+from shrinking.pruner import Pruner
 from semantic_segmentation.networks import hrnet
 from classification.networks import resnet
 import torch

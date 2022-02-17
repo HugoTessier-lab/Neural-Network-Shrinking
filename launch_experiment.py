@@ -1,5 +1,5 @@
 from utils import args, checkpoint, optimizer, scheduler, train
-from pruning.methods.methods import get_pruning_method
+from pruning.methods import get_pruning_method
 
 
 def main():

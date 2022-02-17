@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from pruning.pruner.custom_operators import Adder, add, freeze_adders
+from shrinking.custom_operators import Adder, add, freeze_adders
 
 
 class BasicBlock(nn.Module):

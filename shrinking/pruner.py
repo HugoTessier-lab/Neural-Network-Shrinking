@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from pruning.pruner.custom_operators import Adder, MutableAdder, unfreeze_adder, EmptyLayer
+from shrinking.custom_operators import Adder, MutableAdder, unfreeze_adder, EmptyLayer
 import copy
-from pruning.pruner.layer_shrinker import shrink_identity, shrink_bn, shrink_conv, shrink_linear
+from shrinking.layer_shrinker import shrink_identity, shrink_bn, shrink_conv, shrink_linear
 
 
 def backward_hook(self, input, output):
