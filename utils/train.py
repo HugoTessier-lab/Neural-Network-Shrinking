@@ -5,7 +5,7 @@ import os
 
 def _save_results(name, criterion, dataset, e, epochs, global_loss, metrics, output_path, results):
     with open(os.path.join(output_path, 'results.txt'), 'a') as f:
-        message = f'{name}: epoch {e + 1}/{epochs} -> '
+        message = f'{name}: epoch {e}/{epochs} -> '
         message += f'{criterion.name} loss = {float(global_loss) / (len(dataset["test"]) * dataset["test"].batch_size)}, '
         for k, m in enumerate(metrics):
             message += f'{m.name} = {float(results[k]) / (len(dataset["test"]) * dataset["test"].batch_size)}\t'
