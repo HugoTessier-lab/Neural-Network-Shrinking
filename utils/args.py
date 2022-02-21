@@ -1,9 +1,11 @@
 import argparse
 
+
 def tuple_type(strings):
     strings = strings.replace("(", "").replace(")", "")
     mapped_int = map(int, strings.split(","))
     return tuple(mapped_int)
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Neural Network Shrinking')
@@ -80,27 +82,6 @@ def parse_arguments():
                         help='Input feature maps of classification ResNets (either 64 or 16)')
 
     # SEMANTIC SEGMENTATION
-
-    parser.add_argument("--unet_variant", action="store_true", default=False,
-                        help="Uses the unet variant.")
-
-    parser.add_argument("--unet_batchnorm", action="store_true", default=False,
-                        help="Uses the unet batchnorms.")
-
-    parser.add_argument("--unet_concat", action="store_true", default=False,
-                        help="Unet concatenates feature maps instead of summing them.")
-
-    parser.add_argument("--deeplab_depthwise", action="store_true", default=False,
-                        help="Perform DeepLabV3 with depthwise convolutions.")
-
-    parser.add_argument("--deeplab_decoder", action="store_true", default=False,
-                        help="Extends DeepLabV3 with a decoder.")
-
-    parser.add_argument("--deeplab_hierarchical", action="store_true", default=False,
-                        help="Fuses DeepLabV3's multi-scales features in a hierarchical/residual way.")
-
-    parser.add_argument('--output_stride', type=int, default=16,
-                        help='Output stride (16 or 8) of ResNet when dilated for DeepLabV3 (default: 16)')
 
     parser.add_argument("--pretrained", action="store_true", default=False,
                         help="Use pretrained models.")
