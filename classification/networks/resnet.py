@@ -119,9 +119,9 @@ class ResNet(nn.Module):
         out = self.linear(out)
         return out
 
-    def freeze(self, image_shape, value=True):
+    def freeze(self, image_shape):
         freeze_adders(self, image_shape)
-        self.frozen = value
+        self.frozen = True
 
 
 def resnet18(num_classes=10, in_planes=64, adder=False):

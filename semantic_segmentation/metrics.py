@@ -25,7 +25,7 @@ class MIOU:
             x = (transformed_output == c).float() * mask
             y = (target == c).float()
             l.append(self.IoU(x, y))
-        return torch.mean(torch.stack(l)).item()
+        return torch.sum(torch.mean(torch.stack(l).permute(1, 0), dim=1)).item()
 
 
 def get_metric(name):

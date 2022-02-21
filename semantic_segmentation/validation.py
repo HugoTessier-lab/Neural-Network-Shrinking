@@ -25,84 +25,84 @@ def test_hrnet():
     print('\nTesting HRNet standalone networks...\n')
     model_name = 'HRNet-18'
     try:
-        model = hrnet.hrnet18(True, gates=False, mappers=False)
+        model = hrnet.hrnet18(True, adder=False)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
     model_name = 'HRNet-18-gates'
     try:
-        model = hrnet.hrnet18(True, gates=True, mappers=False)
+        model = hrnet.hrnet18(True, adder=False)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
-    model_name = 'HRNet-18-mappers'
+    model_name = 'HRNet-18-adder'
     try:
-        model = hrnet.hrnet18(True, gates=False, mappers=True)
+        model = hrnet.hrnet18(True, adder=True)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
-    model_name = 'HRNet-18-gates-mappers'
+    model_name = 'HRNet-18-gates-adder'
     try:
-        model = hrnet.hrnet18(True, gates=True, mappers=True)
+        model = hrnet.hrnet18(True, adder=True)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
     model_name = 'HRNet-32'
     try:
-        model = hrnet.hrnet32(True, gates=False, mappers=False)
+        model = hrnet.hrnet32(True, adder=False)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
     model_name = 'HRNet-32-gates'
     try:
-        model = hrnet.hrnet32(True, gates=True, mappers=False)
+        model = hrnet.hrnet32(True, adder=False)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
-    model_name = 'HRNet-32-mappers'
+    model_name = 'HRNet-32-adder'
     try:
-        model = hrnet.hrnet32(True, gates=False, mappers=True)
+        model = hrnet.hrnet32(True, adder=True)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
-    model_name = 'HRNet-32-gates-mappers'
+    model_name = 'HRNet-32-gates-adder'
     try:
-        model = hrnet.hrnet32(True, gates=True, mappers=True)
+        model = hrnet.hrnet32(True, adder=True)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
     model_name = 'HRNet-48'
     try:
-        model = hrnet.hrnet48(True, gates=False, mappers=False)
+        model = hrnet.hrnet48(True, adder=False)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
     model_name = 'HRNet-48-gates'
     try:
-        model = hrnet.hrnet48(True, gates=True, mappers=False)
+        model = hrnet.hrnet48(True, adder=False)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
-    model_name = 'HRNet-48-mappers'
+    model_name = 'HRNet-48-adder'
     try:
-        model = hrnet.hrnet48(True, gates=False, mappers=True)
+        model = hrnet.hrnet48(True, adder=True)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:
         test_network(model, model_name)
-    model_name = 'HRNet-48-gates-mappers'
+    model_name = 'HRNet-48-gates-adder'
     try:
-        model = hrnet.hrnet48(True, gates=True, mappers=True)
+        model = hrnet.hrnet48(True, adder=True)
     except Exception as e:
         print(f'\tError when instantiating network {model_name} : {str(e)}')
     else:

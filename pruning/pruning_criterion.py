@@ -25,3 +25,37 @@ class BatchNormGlobal:
                     return [torch.ones(mod.weight.shape).to(mod.weight.device),
                             torch.ones(mod.bias.shape).to(mod.bias.device)]
             return [(mod.weight.data.abs() >= 0).float()]
+
+
+class BatchNormLocal:
+    def __init__(self):
+        self.rate = None
+
+    def init_model(self, model):
+        pass
+
+    def set_pruning_rate(self, rate):
+        self.rate = rate
+
+    def get_module_mask(self, mod):
+        if isinstance(mod, nn.BatchNorm2d):
+            weights = mod.weight.data.abs().sort()[0]
+            threshold = weights[int(self.rate * len(weights))]
+            mask = (mod.weight.data.abs() >= threshold).float()
+            return [mask, mask]
+        else:
+            if hasattr(mod, 'bias'):
+                if mod.bias is not None:
+                    return [torch.ones(mod.weight.shape).to(mod.weight.device),
+                            torch.ones(mod.bias.shape).to(mod.bias.device)]
+            return [(mod.weight.data.abs() >= 0).float()]
+
+
+def get_pruning_criterion(name):
+    if name == 'global':
+        return BatchNormGlobal()
+    elif name == 'local':
+        return BatchNormLocal
+    else:
+        print('ERROR : non existing pruning criterion type.')
+        raise ValueError

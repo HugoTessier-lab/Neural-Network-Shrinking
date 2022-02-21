@@ -41,7 +41,8 @@ class Adder(nn.Module):
 
     @staticmethod
     def gather_channels(t, in_channels):
-        if torch.equal(in_channels, torch.linspace(0, t.shape[1] - 1, t.shape[1], dtype=torch.int64)):
+        if torch.equal(in_channels, torch.linspace(0, t.shape[1] - 1, t.shape[1],
+                                                   dtype=torch.int64).to(in_channels.device)):
             return t
         shape = t.shape
         index = in_channels.view(1, in_channels.shape[0], 1, 1)
@@ -50,7 +51,8 @@ class Adder(nn.Module):
 
     @staticmethod
     def scatter_channels(t, out_channels, channels):
-        if torch.equal(out_channels, torch.linspace(0, channels - 1, channels, dtype=torch.int64)):
+        if torch.equal(out_channels, torch.linspace(0, channels - 1, channels,
+                                                    dtype=torch.int64).to(out_channels.device)):
             return t
         shape = t.shape
         z = torch.zeros(1, dtype=t.dtype, device=t.device
@@ -126,7 +128,7 @@ class FrozenAdder(nn.Module):
 
         if 0 not in input_a_shape:
             self.skip_gather_a = torch.equal(in_channels_a, torch.linspace(0, input_a_shape[1] - 1, input_a_shape[1],
-                                                                           dtype=torch.int64))
+                                                                           dtype=torch.int64).to(in_channels_a.device))
         else:
             self.skip_gather_a = True
         if not self.skip_gather_a:
@@ -136,7 +138,7 @@ class FrozenAdder(nn.Module):
 
         if 0 not in input_b_shape:
             self.skip_gather_b = torch.equal(in_channels_b, torch.linspace(0, input_b_shape[1] - 1, input_b_shape[1],
-                                                                           dtype=torch.int64))
+                                                                           dtype=torch.int64).to(in_channels_b.device))
         else:
             self.skip_gather_b = True
         if not self.skip_gather_b:
@@ -145,14 +147,16 @@ class FrozenAdder(nn.Module):
                                                         output_image_shape[2], output_image_shape[3])
 
         self.skip_scatter_a = torch.equal(in_channels_a,
-                                          torch.linspace(0, channels - 1, channels, dtype=torch.int64))
+                                          torch.linspace(0, channels - 1, channels,
+                                                         dtype=torch.int64).to(in_channels_a.device))
         if not self.skip_scatter_a:
             self.scatter_index_a = out_channels_a.view(
                 1, out_channels_a.shape[0], 1, 1).expand(output_image_shape[0], out_channels_a.shape[0],
                                                          output_image_shape[2], output_image_shape[3])
 
         self.skip_scatter_b = torch.equal(in_channels_b,
-                                          torch.linspace(0, channels - 1, channels, dtype=torch.int64))
+                                          torch.linspace(0, channels - 1, channels,
+                                                         dtype=torch.int64).to(in_channels_b.device))
         if not self.skip_scatter_b:
             self.scatter_index_b = out_channels_b.view(
                 1, out_channels_b.shape[0], 1, 1).expand(output_image_shape[0], out_channels_b.shape[0],

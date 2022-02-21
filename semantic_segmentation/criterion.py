@@ -58,7 +58,7 @@ def map_get_pairs_region(labels_4D, probs_4D, radius=3, is_combine=0, num_classe
 
 
 def log_det_by_cholesky(matrix):
-    chol = torch.cholesky(matrix)
+    chol = torch.linalg.cholesky(matrix)
     return 2.0 * torch.sum(torch.log(torch.diagonal(chol, dim1=-2, dim2=-1) + 1e-8), dim=-1)
 
 

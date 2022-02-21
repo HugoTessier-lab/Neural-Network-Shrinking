@@ -1,11 +1,11 @@
 import math
 from shrinking.pruner import Pruner
-from pruning.pruning_criterion import BatchNormGlobal
 from pruning.target_calculation import find_mask
 
 
 class SWD:
-    def __init__(self, model, dataset, epochs, a_min, a_max, pruning_rate, image_shape, weight_decay):
+    def __init__(self, model, dataset, epochs, a_min, a_max, pruning_rate, image_shape, weight_decay,
+                 pruning_criterion):
         self.model = model
         self.total_steps = len(dataset) * epochs
         self.dataset_length = len(dataset)
@@ -22,6 +22,7 @@ class SWD:
         self.step_in_epoch = 0
         self.mask = None
         self.weight_decay = weight_decay
+        self.pruning_criterion = pruning_criterion
 
     def get_a(self):
         return self.a_min * (math.pow(self.a_max / self.a_min, self.current_step / self.total_steps))
@@ -30,7 +31,7 @@ class SWD:
         if self.step_in_epoch == self.dataset_length:
             self.step_in_epoch = 0
         if self.step_in_epoch == 0:
-            self.mask = find_mask(self.model, self.pruner, self.pruning_rate, BatchNormGlobal())
+            self.mask = find_mask(self.model, self.pruner, self.pruning_rate, self.pruning_criterion)
         self.current_step += 1
         self.step_in_epoch += 1
         a = self.get_a()
@@ -45,4 +46,6 @@ class SWD:
                     i += 1
 
     def prune(self):
+        self.mask = find_mask(self.model, self.pruner, self.pruning_rate, self.pruning_criterion)
+        self.pruner.apply_mask(self.mask)
         self.pruner.shrink_model(self.model)

@@ -107,14 +107,17 @@ def parse_arguments():
 
     # PRUNING METHOD
 
-    parser.add_argument('--pruning_method', type=str, default="none",
-                        help="Pruning method to use (default: 'none')")
-
     parser.add_argument('--pruning_rate', type=float, default=0.,
                         help='Pruning rate (default: 0.)')
 
-    parser.add_argument('--pruner_image_shape', type=tuple_type, default=(1, 3, 100, 100),
-                        help="Image shape for the pruner's inference (default: (1, 3, 100, 100))")
+    parser.add_argument('--pruner_image_shape', type=tuple_type, default=(1, 3, 64, 64),
+                        help="Image shape for the pruner's inference (default: (1, 3, 64, 64))")
+
+    parser.add_argument("--lrr", action="store_true", default=False,
+                        help="LR-Rewinding.")
+
+    parser.add_argument('--pruning_criterion', type=str, default='global',
+                        help='Pruning criterion (default: "global")')
 
     # SWD
 

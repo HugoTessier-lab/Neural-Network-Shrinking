@@ -403,6 +403,7 @@ class HighResolutionNet(nn.Module):
             nn.ReLU(),
             conv1x1(in_planes=last_inp_channels, out_planes=num_classes, stride=1, bias=True))
         self.num_classes = num_classes
+        self.frozen = False
 
     def forward(self, x):
         if not (((x.size(2) & (x.size(2) - 1) == 0) and x.size(2) != 0)
@@ -432,7 +433,8 @@ class HighResolutionNet(nn.Module):
         x = upsample(x, scale_factor=4)
         return x
 
-    def freeze(self, image_shape, value=True):
+    def freeze(self, image_shape):
+        self.frozen = True
         freeze_adders(self, image_shape)
 
 
