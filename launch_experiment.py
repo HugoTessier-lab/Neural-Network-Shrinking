@@ -29,7 +29,7 @@ def main():
 
     swd = None
     if arguments.pruning_rate != 0:
-        swd = SWD(model, dataset, arguments.epochs, arguments.a_min, arguments.a_max, arguments.pruning_rate,
+        swd = SWD(model, dataset['train'], arguments.epochs, arguments.a_min, arguments.a_max, arguments.pruning_rate,
                   arguments.pruner_image_shape, arguments.wd, get_pruning_criterion(arguments.pruning_criterion))
 
     count = len(torch.cat([i.flatten() for i in check.model.parameters()]))
