@@ -59,8 +59,12 @@ def main():
                           swd=None)
 
     check.name = f'PRUNED_swd_{arguments.pruning_rate}_{arguments.a_min}_{arguments.a_max}'
-    check.model.freeze(arguments.frozen_image_shape)
-    torch.save(check.model, os.path.join(check.save_folder, check.name + '_model.pt'))
+    if arguments.distributed:
+        model = check.model.module
+    else:
+        model = check.model
+    model.freeze(arguments.frozen_image_shape)
+    torch.save(model, os.path.join(check.save_folder, check.name + '_model.pt'))
 
 
 if __name__ == '__main__':

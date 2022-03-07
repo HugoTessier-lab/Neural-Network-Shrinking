@@ -15,7 +15,8 @@ def get_model(args):
         else:
             print("Wrong dataset specified")
             raise ValueError
-        model = resnet.resnet_model(args.model, num_class, in_planes=args.input_feature_maps)
+        model = resnet.resnet_model(args.model, num_class, in_planes=args.input_feature_maps,
+                                    adder=args.pruning_rate != 0)
     else:
         print('ERROR : non existing classification network type.')
         raise ValueError
