@@ -3,9 +3,9 @@ import sys
 import os
 
 
-def _save_results(name, criterion, dataset, e, epochs, global_loss, metrics, output_path, results):
-    with open(os.path.join(output_path, 'results.txt'), 'a') as f:
-        message = f'{name}: epoch {e}/{epochs} -> '
+def _save_results(name, message_head, criterion, dataset, e, epochs, global_loss, metrics, output_path, results):
+    with open(os.path.join(output_path, name + '_results.txt'), 'a') as f:
+        message = f'{message_head}: epoch {e}/{epochs} -> '
         message += f'{criterion.name} loss = {float(global_loss) / (len(dataset["test"]) * dataset["test"].batch_size)}, '
         for k, m in enumerate(metrics):
             message += f'{m.name} = {float(results[k]) / (len(dataset["test"]) * dataset["test"].batch_size)}\t'
@@ -83,7 +83,7 @@ def train_model(name, checkpoint, dataset, epochs, criterion, metrics, output_pa
         print()
         global_loss, results = _test(checkpoint, criterion, dataset, debug, device, metrics)
 
-        _save_results(name, criterion, dataset, e, epochs, global_loss, metrics, output_path, results)
+        _save_results(checkpoint.name, name, criterion, dataset, e, epochs, global_loss, metrics, output_path, results)
 
         checkpoint.scheduler.step()
     checkpoint.store_model(e)
