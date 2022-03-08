@@ -10,11 +10,6 @@ def tuple_type(strings):
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Neural Network Shrinking')
 
-    # TASK
-
-    parser.add_argument('--task', type=str, default="semanticsegmentation",
-                        help="Type of task (either 'semanticsegmentation' or 'classification')")
-
     # PATHS
 
     parser.add_argument('--results_path', type=str, default="./results",

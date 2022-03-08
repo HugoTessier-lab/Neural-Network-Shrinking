@@ -1,6 +1,5 @@
 from shrinking.pruner import Pruner
-from semantic_segmentation.networks import hrnet
-from classification.networks import resnet
+from utils.networks import hrnet, resnet
 import torch
 import torch.nn as nn
 import numpy as np

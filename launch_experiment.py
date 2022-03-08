@@ -1,4 +1,4 @@
-from utils import args, checkpoint, optimizer, scheduler, train
+from utils import args, checkpoint, optimizer, scheduler, train, criterion, datasets, metrics, models
 from pruning.pruning_criterion import get_pruning_criterion
 from pruning.swd import SWD
 import torch
@@ -7,14 +7,6 @@ import os
 
 def main():
     arguments = args.parse_arguments()
-
-    if arguments.task == 'semanticsegmentation':
-        from semantic_segmentation import criterion, datasets, metrics, models
-    elif arguments.task == 'classification':
-        from classification import criterion, datasets, metrics, models
-    else:
-        print('Wrong task type.')
-        raise ValueError
 
     model = models.get_model(arguments).to(arguments.device)
     optim = optimizer.get_optimizer(arguments, model)
