@@ -38,11 +38,11 @@ class SWD:
         i = 0
         for m in self.model.modules():
             if hasattr(m, 'weight'):
-                m.weight.grad += a * self.weight_decay * (m.weight.data * (self.mask[i] != 0))
+                m.weight.grad += a * self.weight_decay * (m.weight.data * (self.mask[i] == 0))
                 i += 1
             if hasattr(m, 'bias'):
                 if m.bias is not None:
-                    m.bias.grad += a * self.weight_decay * (m.bias.data * (self.mask[i] != 0))
+                    m.bias.grad += a * self.weight_decay * (m.bias.data * (self.mask[i] == 0))
                     i += 1
 
     def prune(self):
