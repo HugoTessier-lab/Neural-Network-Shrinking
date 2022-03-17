@@ -95,6 +95,9 @@ def parse_arguments():
     parser.add_argument('--pruning_criterion', type=str, default='global',
                         help='Pruning criterion (default: "global")')
 
+    parser.add_argument('--pruning_method', type=str, default='swd',
+                        help='Pruning method (default: "swd")')
+
     # SWD
 
     parser.add_argument('--a_min', type=float, default=1e0,
@@ -102,5 +105,10 @@ def parse_arguments():
 
     parser.add_argument('--a_max', type=float, default=1e0,
                         help='Final value for the a of SWD (default: 1e0)')
+
+    # LIU2017
+
+    parser.add_argument('--liu2017_penalty', type=float, default=1e-6,
+                        help='Value of the smooth-L1 penalty for Liu2017 (default: 1e-6)')
 
     return parser.parse_args()

@@ -40,7 +40,7 @@ def _test(checkpoint, criterion, dataset, debug, device, metrics):
     return global_loss, results
 
 
-def _train(checkpoint, criterion, dataset, debug, device, metrics, swd):
+def _train(checkpoint, criterion, dataset, debug, device, metrics, pruning_method):
     results = [0 for _ in range(len(metrics))]
     global_loss = 0
     checkpoint.model.train()
@@ -54,8 +54,8 @@ def _train(checkpoint, criterion, dataset, debug, device, metrics, swd):
         output = checkpoint.model(data)
         loss = criterion(output, target.long())
         loss.backward()
-        if swd:
-            swd.step()
+        if pruning_method:
+            pruning_method.step()
         checkpoint.optimizer.step()
 
         for k, m in enumerate(metrics):
@@ -70,7 +70,7 @@ def _train(checkpoint, criterion, dataset, debug, device, metrics, swd):
         sys.stdout.write(message)
 
 
-def train_model(name, checkpoint, dataset, epochs, criterion, metrics, output_path, debug, device, swd):
+def train_model(name, checkpoint, dataset, epochs, criterion, metrics, output_path, debug, device, pruning_method):
     e = 0
     while e < epochs:
         e = checkpoint.store_model(e)
@@ -79,7 +79,7 @@ def train_model(name, checkpoint, dataset, epochs, criterion, metrics, output_pa
         e += 1
         print(f'\nEpoch {e}/{epochs}')
 
-        _train(checkpoint, criterion, dataset, debug, device, metrics, swd)
+        _train(checkpoint, criterion, dataset, debug, device, metrics, pruning_method)
         print()
         global_loss, results = _test(checkpoint, criterion, dataset, debug, device, metrics)
 
