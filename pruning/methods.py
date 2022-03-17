@@ -1,9 +1,8 @@
 import math
-
 import torch.nn
-
 from shrinking.pruner import Pruner
 from pruning.target_calculation import find_mask
+import torch.nn.utils.prune as pr
 
 
 class SWD:
@@ -75,7 +74,10 @@ class Liu2017:
     def step(self):
         for m in self.model.modules():
             if isinstance(m, torch.nn.BatchNorm2d):
-                m.weight.grad += self._smooth_l1(m.weight.data)
+                if hasattr(m, 'weight') and not hasattr(m, 'weight_orig'):
+                    m.weight.grad += self._smooth_l1(m.weight.data)
+                elif hasattr(m, 'weight_orig'):
+                    m.weight_orig.grad += self._smooth_l1(m.weight_orig.data)
 
     def prune(self):
         mask = find_mask(self.model, self.pruner, self.pruning_rate, self.pruning_criterion)
@@ -88,7 +90,26 @@ class Liu2017:
         elif mode == 'pruned':
             return f'_liu2017_penalty_{self.penalty}_pruning_rate_{self.pruning_rate}'
         else:
-            raise ValueError
+            return f'_liu2017_penalty_{self.penalty}_pruning_rate_{self.pruning_rate}_{mode}'
+
+    def mask_model(self):
+        mask = find_mask(self.model, self.pruner, self.pruning_rate, self.pruning_criterion)
+        i = 0
+        for m in self.model.modules():
+            if hasattr(m, 'weight'):
+                pr.custom_from_mask(m, 'weight', mask[i])
+                i += 1
+            if hasattr(m, 'bias'):
+                if m.bias is not None:
+                    pr.custom_from_mask(m, 'bias', mask[i])
+                    i += 1
+
+    def remove(self):
+        for m in self.model.modules():
+            if hasattr(m, 'weight_orig'):
+                pr.remove(m, 'weight')
+            if hasattr(m, 'bias_orig'):
+                pr.remove(m, 'bias')
 
 
 def get_pruning_method(args, model, dataset, pruning_criterion):

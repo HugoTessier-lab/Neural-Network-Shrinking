@@ -3,6 +3,7 @@ from pruning.pruning_criterion import get_pruning_criterion
 from pruning.methods import get_pruning_method
 import torch
 import os
+import numpy as np
 
 
 def main():
@@ -27,11 +28,33 @@ def main():
     count = len(torch.cat([i.flatten() for i in check.model.parameters()]))
     print('Original count of parameters: ', count)
 
+    print('\n\nTraining')
     train.train_model(name='Training', checkpoint=check, dataset=dataset,
                       epochs=arguments.epochs, criterion=crit, metrics=met,
                       output_path=arguments.results_path, debug=arguments.debug,
                       device=arguments.device,
                       pruning_method=pruning_method)
+
+    pruning_iterations = arguments.pruning_iterations - arguments.lrr
+
+    if arguments.pruning_method == "liu2017" and pruning_iterations != 1:
+        rates = np.linspace(0, arguments.pruning_rate, arguments.pruning_iterations + 1)[1:]
+        for i, r in enumerate(rates if not arguments.lrr else rates[:-1]):
+            pruning_method.pruning_rate = r
+            pruning_method.mask_model()
+            name = 'FT' + pruning_method.get_name(f'{i + 1}_{arguments.pruning_iterations}')
+            print(f'\n\n{name}')
+            check.name = f'pruning_rate_{arguments.pruning_rate}_step({i + 1}_{len(rates)})'
+            train.train_model(name=name, checkpoint=check, dataset=dataset,
+                              epochs=arguments.fine_tuning_epochs if i + 1 != len(rates) and not arguments.lrr
+                              else arguments.fine_tuning_epochs + arguments.additional_final_epochs,
+                              criterion=crit, metrics=met,
+                              output_path=arguments.results_path, debug=arguments.debug,
+                              device=arguments.device,
+                              pruning_method=pruning_method,
+                              freeze_lr=True)
+            pruning_method.remove()
+        pruning_method.pruning_rate = rates[-1]
 
     if pruning_method:
         pruning_method.prune()
@@ -44,13 +67,15 @@ def main():
         check.optimizer = optimizer.get_optimizer(arguments, check.model)
         check.scheduler = scheduler.get_scheduler(arguments, check.optimizer)
         check.name = 'LRR' + (pruning_method.get_name('pruned') if pruning_method is not None else '')
+        print(f'\n\nLRR_{arguments.pruning_rate}')
         train.train_model(name=f'LRR_{arguments.pruning_rate}', checkpoint=check, dataset=dataset,
                           epochs=arguments.epochs, criterion=crit, metrics=met,
                           output_path=arguments.results_path, debug=arguments.debug,
                           device=arguments.device,
                           pruning_method=None)
 
-    check.name = 'PRUNED' + (pruning_method.get_name('pruned') if pruning_method is not None else '')
+    check.name = 'PRUNED' + (pruning_method.get_name('pruned') if pruning_method is not None else '') + (
+        '_lrr' if arguments.lrr else '')
     if arguments.distributed:
         model = check.model.module
     else:

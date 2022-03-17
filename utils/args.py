@@ -98,6 +98,15 @@ def parse_arguments():
     parser.add_argument('--pruning_method', type=str, default='swd',
                         help='Pruning method (default: "swd")')
 
+    parser.add_argument('--pruning_iterations', type=int, default=1,
+                        help='Number of iterations in which divide pruning; works only with liu2017 (default: 1)')
+
+    parser.add_argument('--fine_tuning_epochs', type=int, default=20,
+                        help='Number of fine-tuning epochs for each pruning iteration (default: 20)')
+
+    parser.add_argument('--additional_final_epochs', type=int, default=0,
+                        help="How many more fine-tuning epochs at the very end (default: 0)")
+
     # SWD
 
     parser.add_argument('--a_min', type=float, default=1e0,

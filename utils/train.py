@@ -70,7 +70,8 @@ def _train(checkpoint, criterion, dataset, debug, device, metrics, pruning_metho
         sys.stdout.write(message)
 
 
-def train_model(name, checkpoint, dataset, epochs, criterion, metrics, output_path, debug, device, pruning_method):
+def train_model(name, checkpoint, dataset, epochs, criterion, metrics, output_path, debug, device, pruning_method,
+                freeze_lr=False):
     e = 0
     while e < epochs:
         e = checkpoint.store_model(e)
@@ -85,5 +86,6 @@ def train_model(name, checkpoint, dataset, epochs, criterion, metrics, output_pa
 
         _save_results(checkpoint.name, name, criterion, dataset, e, epochs, global_loss, metrics, output_path, results)
 
-        checkpoint.scheduler.step()
+        if not freeze_lr:
+            checkpoint.scheduler.step()
     checkpoint.store_model(e)
