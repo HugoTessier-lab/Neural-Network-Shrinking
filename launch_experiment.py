@@ -44,7 +44,7 @@ def main():
             pruning_method.mask_model()
             name = 'FT' + pruning_method.get_name(f'{i + 1}_{arguments.pruning_iterations}')
             print(f'\n\n{name}')
-            check.name = f'pruning_rate_{arguments.pruning_rate}_step({i + 1}_{len(rates)})'
+            check.name = name + f'_final_pruning_rate_{arguments.pruning_rate}_step({i + 1}_{len(rates)})'
             train.train_model(name=name, checkpoint=check, dataset=dataset,
                               epochs=arguments.fine_tuning_epochs if i + 1 != len(rates) and not arguments.lrr
                               else arguments.fine_tuning_epochs + arguments.additional_final_epochs,

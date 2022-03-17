@@ -53,7 +53,8 @@ class SWD:
         self.pruner.shrink_model(self.model)
 
     def get_name(self, mode):
-        return f'_swd_pruning_rate_{self.pruning_rate}_amin_{self.a_min}_amax_{self.a_max}'
+        return f'_swd_pruning_rate_{self.pruning_rate}_{self.pruning_criterion.name()}' \
+               f'_amin_{self.a_min}_amax_{self.a_max}'
 
 
 class Liu2017:
@@ -86,11 +87,12 @@ class Liu2017:
 
     def get_name(self, mode):
         if mode == 'base':
-            return f'_liu2017_penalty_{self.penalty}'
+            return f'_liu2017_{self.pruning_criterion.name()}_penalty_{self.penalty}'
         elif mode == 'pruned':
-            return f'_liu2017_penalty_{self.penalty}_pruning_rate_{self.pruning_rate}'
+            return f'_liu2017_{self.pruning_criterion.name()}_penalty_{self.penalty}_pruning_rate_{self.pruning_rate}'
         else:
-            return f'_liu2017_penalty_{self.penalty}_pruning_rate_{self.pruning_rate}_{mode}'
+            return f'_liu2017_{self.pruning_criterion.name()}' \
+                   f'_penalty_{self.penalty}_pruning_rate_{self.pruning_rate}_{mode}'
 
     def mask_model(self):
         mask = find_mask(self.model, self.pruner, self.pruning_rate, self.pruning_criterion)

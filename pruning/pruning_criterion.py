@@ -26,6 +26,10 @@ class BatchNormGlobal:
                             torch.ones(mod.bias.shape).to(mod.bias.device)]
             return [(mod.weight.data.abs() >= 0).float()]
 
+    @staticmethod
+    def name():
+        return 'BatchNormGlobal'
+
 
 class BatchNormLocal:
     def __init__(self):
@@ -50,12 +54,16 @@ class BatchNormLocal:
                             torch.ones(mod.bias.shape).to(mod.bias.device)]
             return [(mod.weight.data.abs() >= 0).float()]
 
+    @staticmethod
+    def name():
+        return 'BatchNormLocal'
+
 
 def get_pruning_criterion(name):
     if name == 'global':
         return BatchNormGlobal()
     elif name == 'local':
-        return BatchNormLocal
+        return BatchNormLocal()
     else:
         print('ERROR : non existing pruning criterion type.')
         raise ValueError
