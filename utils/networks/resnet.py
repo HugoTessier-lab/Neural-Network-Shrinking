@@ -33,6 +33,9 @@ class BasicBlock(nn.Module):
         out = F.relu(out)
         return out
 
+    def get_safe_layers(self):
+        return [self.conv1, self.bn1]
+
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -67,6 +70,9 @@ class Bottleneck(nn.Module):
         out = self.adder(out, self.shortcut(x))
         out = F.relu(out)
         return out
+
+    def get_safe_layers(self):
+        return [self.conv1, self.bn1, self.conv2, self.bn2]
 
 
 class ResNet(nn.Module):
@@ -122,6 +128,13 @@ class ResNet(nn.Module):
     def freeze(self, image_shape):
         freeze_adders(self, image_shape)
         self.frozen = True
+
+    def get_safe_layers(self):
+        layers = []
+        for m in self.modules():
+            if isinstance(m, BasicBlock) or isinstance(m, Bottleneck):
+                layers.extend(m.get_safe_layers())
+        return layers
 
 
 def resnet18(num_classes=10, in_planes=64, adder=False):
