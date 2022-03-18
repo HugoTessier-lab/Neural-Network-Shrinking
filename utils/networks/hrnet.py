@@ -87,6 +87,9 @@ class BasicBlock(nn.Module):
 
         return out
 
+    def get_safe_layers(self):
+        return [self.conv1, self.bn1]
+
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -135,6 +138,9 @@ class Bottleneck(nn.Module):
         out = self.relu(out)
 
         return out
+
+    def get_safe_layers(self):
+        return [self.conv1, self.bn1, self.conv2, self.bn2]
 
 
 class FuseBlock(nn.Module):
@@ -188,6 +194,16 @@ class FuseBlock(nn.Module):
                 y = self.adder[j - 1](y, self.fuse_layer[j](x[j]))
         y = F.relu(y)
         return y
+
+    def get_safe_layers(self):
+        layers = []
+        for branch in self.fuse_layer:
+            if branch is not None:
+                if isinstance(branch[0], nn.Sequential):
+                    if len(branch) != 0:
+                        for element in branch[:-1]:
+                            layers.extend([element[0], element[1]])
+        return layers
 
 
 class FuseStage(nn.Module):
@@ -436,6 +452,14 @@ class HighResolutionNet(nn.Module):
     def freeze(self, image_shape):
         self.frozen = True
         freeze_adders(self, image_shape)
+
+    def get_safe_layers(self):
+        layers = []
+        for m in self.modules():
+            if isinstance(m, BasicBlock) or isinstance(m, Bottleneck) or isinstance(m, FuseBlock):
+                layers.extend(m.get_safe_layers())
+        layers.extend([self.last_layer[0], self.last_layer[1]])
+        return layers
 
 
 def _hrnet(arch, pretrained, progress, adder=False, **kwargs):
