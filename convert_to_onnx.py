@@ -26,6 +26,9 @@ def parse_arguments():
     parser.add_argument('--frozen_image_shape', type=tuple_type, default=(1, 3, 512, 1024),
                         help="Image shape for which to configure the ONNX network (default: (1, 3, 512, 1024))")
 
+    parser.add_argument('--minimal_image_shape', type=tuple_type, default=(1, 3, 64, 64),
+                        help="Image shape with which compute the mask (default: (1, 3, 64, 64))")
+
     parser.add_argument('--dataset', type=str, default="./cityscapes",
                         help="dataset to use  (default: './cityscapes')")
 
@@ -41,8 +44,15 @@ def parse_arguments():
     parser.add_argument('--device', type=str, default="cuda",
                         help="Device to use (default: 'cuda')")
 
+    parser.add_argument('--loading_device', type=str, default="cuda",
+                        help="Device on which are stored the models (default: 'cuda')")
+
     parser.add_argument('--pruning_criterion', type=str, default='global',
                         help='Pruning criterion (default: "global")')
+
+    parser.add_argument("--distributed", type=str, default='no',
+                        help="'no': not distributed, 'load': load with distributed, run normally, "
+                             "'run': run with distributed, load normally, 'all': always distributed")
 
     return parser.parse_args()
 
@@ -54,17 +64,26 @@ if __name__ == '__main__':
         if args.model_path.endswith('.chk'):
             data = pickle.load(f)
             state_dict = data['model']
+            for k, v in state_dict.items():
+                state_dict[k] = v.to(args.device)
             model = get_model(args).to(args.device)
+            if args.distributed == 'load' or args.distributed == 'all':
+                model = torch.nn.DataParallel(model)
             model.load_state_dict(state_dict)
-            pruner = Pruner(model, args.frozen_image_shape, args.device)
+            if args.distributed == 'load':
+                model = model.module
+                model = model.to(args.device)
+            if args.distributed == 'run':
+                model = torch.nn.DataParallel(model)
+            pruner = Pruner(model, args.minimal_image_shape, args.device)
             mask = find_mask(model, pruner, args.pruning_rate, get_pruning_criterion(args.pruning_criterion))
             pruner.apply_mask(mask)
             pruner.shrink_model(model)
             model.freeze(args.frozen_image_shape)
-            name = args.model_path[:-3] + 'onnx'
+            name = args.model_path[:-4] + str(args.frozen_image_shape) + '.onnx'
         elif args.model_path.endswith('.pt'):
             model = torch.load(f)
-            name = args.model_path[:-2] + 'onnx'
+            name = args.model_path[:-3] + str(args.frozen_image_shape) + '.onnx'
         else:
             print('Invalid model extension')
             raise ValueError
