@@ -15,13 +15,13 @@ if __name__ == '__main__':
         return tuple(mapped_int)
 
 
+    parser.add_argument('--model', type=str, default='')
     parser.add_argument('--input_shape', type=tuple_type, default=(1, 3, 100, 100))
     parser.add_argument('--pruning_rate', type=float, default=0.)
     args = parser.parse_args()
 
     log += f'Pruning rate : {args.pruning_rate}, Input shape : {args.input_shape}, '
-    name = f'./onnx_networks/rate_{args.pruning_rate}_dims_{args.input_shape}.onnx'
-    ort_session = onnxruntime.InferenceSession(name, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider',
+    ort_session = onnxruntime.InferenceSession(args.model, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider',
                                                                 'CPUExecutionProvider'])
     ort_inputs = {ort_session.get_inputs()[0].name: np.ones(args.input_shape, dtype=np.float32)}
     log += f'Overhead time : {time() - t}, '

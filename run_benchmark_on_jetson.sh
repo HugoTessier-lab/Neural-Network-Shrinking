@@ -1,6 +1,6 @@
-#Arguments: $1: file in which to store tegrastats' output, $2: pruning rate, $3: input shape, $4: duration of sleep in seconds
-sudo tegrastats --logfile $1 &
-sleep $4s
-OPENBLAS_CORETYPE=CORTEXA57 python3 benchmark_on_jetson.py --pruning_rate $2 --input_shape $3
-sleep $4s
+#Arguments: $1: path to the model to benchmark, $2: file in which to store tegrastats' output, $3: pruning rate, $4: input shape, $5: duration of sleep in seconds
+sudo tegrastats --logfile $2 &
+sleep $5s
+OPENBLAS_CORETYPE=CORTEXA57 python3 benchmark_on_jetson.py --model $1 --pruning_rate $3 --input_shape $4
+sleep $5s
 sudo tegrastats --stop
