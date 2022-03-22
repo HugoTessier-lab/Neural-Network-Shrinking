@@ -72,7 +72,11 @@ if __name__ == '__main__':
             model = get_model(args).to(args.device)
             if args.distributed == 'load' or args.distributed == 'all':
                 model = torch.nn.DataParallel(model)
-            model.load_state_dict(state_dict)
+            if not args.already_pruned:
+                model.load_state_dict(state_dict)
+            else:
+                for k, v in state_dict.items():
+                    setattr(model, k, v)
             if args.distributed == 'load':
                 model = model.module
                 model = model.to(args.device)
