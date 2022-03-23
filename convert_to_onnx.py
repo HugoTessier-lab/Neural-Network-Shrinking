@@ -54,9 +54,6 @@ def parse_arguments():
                         help="'no': not distributed, 'load': load with distributed, run normally, "
                              "'run': run with distributed, load normally, 'all': always distributed")
 
-    parser.add_argument("--already_pruned", action="store_true", default=False,
-                        help="For networks that are already pruned but not frozen.")
-
     return parser.parse_args()
 
 
@@ -72,21 +69,16 @@ if __name__ == '__main__':
             model = get_model(args).to(args.device)
             if args.distributed == 'load' or args.distributed == 'all':
                 model = torch.nn.DataParallel(model)
-            if not args.already_pruned:
-                model.load_state_dict(state_dict)
-            else:
-                for k, v in state_dict.items():
-                    setattr(model, k, v)
+            model.load_state_dict(state_dict)
             if args.distributed == 'load':
                 model = model.module
                 model = model.to(args.device)
             if args.distributed == 'run':
                 model = torch.nn.DataParallel(model)
-            if not args.already_pruned:
-                pruner = Pruner(model, args.minimal_image_shape, args.device)
-                mask = find_mask(model, pruner, args.pruning_rate, get_pruning_criterion(args.pruning_criterion))
-                pruner.apply_mask(mask)
-                pruner.shrink_model(model)
+            pruner = Pruner(model, args.minimal_image_shape, args.device)
+            mask = find_mask(model, pruner, args.pruning_rate, get_pruning_criterion(args.pruning_criterion))
+            pruner.apply_mask(mask)
+            pruner.shrink_model(model)
             model.freeze(args.frozen_image_shape)
             name = args.model_path[:-4] + str(args.frozen_image_shape) + '.onnx'
         elif args.model_path.endswith('.pt'):
