@@ -54,6 +54,9 @@ def parse_arguments():
                         help="'no': not distributed, 'load': load with distributed, run normally, "
                              "'run': run with distributed, load normally, 'all': always distributed")
 
+    parser.add_argument("--already_pruned", action="store_true", default=False,
+                        help="For networks that are already pruned but not frozen.")
+
     return parser.parse_args()
 
 
@@ -69,6 +72,18 @@ if __name__ == '__main__':
             model = get_model(args).to(args.device)
             if args.distributed == 'load' or args.distributed == 'all':
                 model = torch.nn.DataParallel(model)
+            if args.already_pruned:
+                to_del = []
+                to_add = []
+                for k, v in state_dict.items():
+                    if 'orig' in k:
+                        to_add.append([k[:-5], state_dict[k] * state_dict[k[:-4] + 'mask']])
+                        to_del.append(k)
+                        to_del.append(k[:-4] + 'mask')
+                for k in to_del:
+                    del state_dict[k]
+                for i in to_add:
+                    state_dict[i[0]] = i[1]
             model.load_state_dict(state_dict)
             if args.distributed == 'load':
                 model = model.module

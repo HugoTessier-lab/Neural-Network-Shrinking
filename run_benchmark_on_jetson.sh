@@ -4,3 +4,4 @@ sleep $5s
 OPENBLAS_CORETYPE=CORTEXA57 python3 benchmark_on_jetson.py --model $1 --pruning_rate $3 --input_shape $4
 sleep $5s
 sudo tegrastats --stop
+sudo pkill tegrastats
