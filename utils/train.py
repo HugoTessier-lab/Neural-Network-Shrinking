@@ -89,3 +89,8 @@ def train_model(name, checkpoint, dataset, epochs, criterion, metrics, output_pa
         if not freeze_lr:
             checkpoint.scheduler.step()
     checkpoint.store_model(e)
+
+
+def test_model(name, checkpoint, dataset, epochs, criterion, metrics, output_path, debug, device):
+    global_loss, results = _test(checkpoint, criterion, dataset, debug, device, metrics)
+    _save_results(checkpoint.name, name, criterion, dataset, -1, epochs, global_loss, metrics, output_path, results)

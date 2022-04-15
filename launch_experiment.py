@@ -56,14 +56,8 @@ def main():
             pruning_method.remove()
         pruning_method.pruning_rate = rates[-1]
 
-    if pruning_method:
-        pruning_method.prune()
-
-    new_count = len(torch.cat([i.flatten() for i in check.model.parameters()]))
-    print('\nCount of parameters after pruning: ', new_count)
-    print('Ratio: ', round((new_count / count) * 100, 2))
-
     if arguments.lrr:
+        pruning_method.mask_model()
         check.optimizer = optimizer.get_optimizer(arguments, check.model)
         check.scheduler = scheduler.get_scheduler(arguments, check.optimizer)
         check.name = 'LRR' + (pruning_method.get_name('pruned') if pruning_method is not None else '')
@@ -73,9 +67,22 @@ def main():
                           output_path=arguments.results_path, debug=arguments.debug,
                           device=arguments.device,
                           pruning_method=None)
+        pruning_method.remove()
 
-    check.name = 'PRUNED' + (pruning_method.get_name('pruned') if pruning_method is not None else '') + (
-        '_lrr' if arguments.lrr else '')
+    if pruning_method:
+        check.name = 'PRUNED' + pruning_method.get_name('pruned') + ('_lrr' if arguments.lrr else '')
+        train.test_model(name='Before final pruning', checkpoint=check, dataset=dataset, epochs=arguments.epochs,
+                         criterion=crit, metrics=met, output_path=arguments.results_path, debug=arguments.debug,
+                         device=arguments.device)
+        pruning_method.prune()
+        train.test_model(name='After final pruning', checkpoint=check, dataset=dataset, epochs=arguments.epochs,
+                         criterion=crit, metrics=met, output_path=arguments.results_path, debug=arguments.debug,
+                         device=arguments.device)
+        new_count = len(torch.cat([i.flatten() for i in check.model.parameters()]))
+        print('\nCount of parameters after pruning: ', new_count)
+        print('Ratio: ', round((new_count / count) * 100, 2))
+    else:
+        check.name = 'BASELINE'
     if arguments.distributed:
         model = check.model.module
     else:
