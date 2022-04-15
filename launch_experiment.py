@@ -80,7 +80,6 @@ def main():
         model = check.model.module
     else:
         model = check.model
-    model.freeze(arguments.frozen_image_shape)
     torch.save(model, os.path.join(check.save_folder, check.name + '_model.pt'))
 
 
