@@ -4,7 +4,7 @@ from utils.models import get_model
 import torch
 from shrinking.onnx_conversion import to_onnx
 from shrinking.pruner import Pruner
-from pruning.target_calculation import find_mask
+from pruning.target_calculation import find_exact_mask
 from pruning.pruning_criterion import get_pruning_criterion
 
 
@@ -91,7 +91,7 @@ if __name__ == '__main__':
             if args.distributed == 'run':
                 model = torch.nn.DataParallel(model)
             pruner = Pruner(model, args.minimal_image_shape, args.device)
-            mask = find_mask(model, pruner, args.pruning_rate, get_pruning_criterion(args.pruning_criterion))
+            mask = find_exact_mask(model, pruner, args.pruning_rate, get_pruning_criterion(args.pruning_criterion))
             pruner.apply_mask(mask)
             pruner.shrink_model(model)
             model.freeze(args.frozen_image_shape)

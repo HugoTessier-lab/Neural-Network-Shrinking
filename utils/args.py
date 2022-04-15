@@ -107,6 +107,9 @@ def parse_arguments():
     parser.add_argument('--additional_final_epochs', type=int, default=0,
                         help="How many more fine-tuning epochs at the very end (default: 0)")
 
+    parser.add_argument("--exact_pruning", action="store_true", default=False,
+                        help="Whether or not to use the hacked gradient method to compute the pruning mask.")
+
     # SWD
 
     parser.add_argument('--a_min', type=float, default=1e0,

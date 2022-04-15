@@ -15,7 +15,7 @@ def get_masked_params_count(network, pruner, pruning_criterion):
     return pruner.get_params_count()
 
 
-def find_mask(network, pruner, target, pruning_criterion):
+def find_exact_mask(network, pruner, target, pruning_criterion):
     pruning_criterion.init_model(network)
     params_total = len(torch.cat([i.flatten() for i in network.parameters()]))
 
@@ -41,3 +41,9 @@ def find_mask(network, pruner, target, pruning_criterion):
             pruning_criterion.set_pruning_rate(mask_rate)
             return generate_mask(network, pruning_criterion)
         previous_count = pruning_count
+
+
+def find_naive_mask(network, target, pruning_criterion):
+    pruning_criterion.init_model(network)
+    pruning_criterion.set_pruning_rate(target)
+    return generate_mask(network, pruning_criterion)
