@@ -59,6 +59,28 @@ class SWD:
         self.pruner.apply_mask(self.mask)
         self.pruner.shrink_model(self.model)
 
+    def mask_model(self):
+        if self.exact_pruning:
+            self.mask = find_exact_mask(self.model, self.pruner, self.pruning_rate, self.pruning_criterion)
+        else:
+            self.mask = find_naive_mask(self.model, self.pruning_rate, self.pruning_criterion)
+        i = 0
+        for m in self.model.modules():
+            if hasattr(m, 'weight'):
+                pr.custom_from_mask(m, 'weight', self.mask[i])
+                i += 1
+            if hasattr(m, 'bias'):
+                if m.bias is not None:
+                    pr.custom_from_mask(m, 'bias', self.mask[i])
+                    i += 1
+
+    def remove(self):
+        for m in self.model.modules():
+            if hasattr(m, 'weight_orig'):
+                pr.remove(m, 'weight')
+            if hasattr(m, 'bias_orig'):
+                pr.remove(m, 'bias')
+
     def get_name(self, mode):
         return f'_swd_pruning_rate_{self.pruning_rate}_{self.pruning_criterion.name()}' \
                f'_amin_{self.a_min}_amax_{self.a_max}'
