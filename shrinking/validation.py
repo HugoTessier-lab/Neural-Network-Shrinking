@@ -19,15 +19,8 @@ def set_seed(seed=0):
 
 
 def test(mask_method, model, size, device, dtype):
-    warmup = 5
-    runs = 20
     input_image = torch.rand(size).to(device)
-    for _ in range(warmup):
-        model(input_image)
-    before = time()
-    for _ in range(runs):
-        model(input_image)
-    time1 = (time() - before) / runs
+    model(input_image)
     pruner = Pruner(model, size, device, dtype=dtype, remove_biases=True)
     mask = mask_method(model, device)
     pruner.apply_mask(mask)
@@ -45,22 +38,9 @@ def test(mask_method, model, size, device, dtype):
         print('\t\tDifference between shrunken and predicted : ',
               pruned_parameters_count - predicted_pruned_parameters_count)
         print('\t\tshrunken/predicted ratio ', round(pruned_parameters_count / predicted_pruned_parameters_count, 2))
-    for _ in range(warmup):
-        model(input_image)
-    before = time()
-    for _ in range(runs):
-        model(input_image)
-    time2 = (time() - before) / runs
+    model(input_image)
     model.freeze(size)
-    for _ in range(5):
-        model(input_image)
-    before = time()
-    for _ in range(runs):
-        model(input_image)
-    time3 = (time() - before) / runs
-    print('Inference time before pruning : ', time1)
-    print('Inference time after pruning : ', time2)
-    print('Inference time after freezing : ', time3)
+    model(input_image)
 
 
 def constant_rate_mask(rate):

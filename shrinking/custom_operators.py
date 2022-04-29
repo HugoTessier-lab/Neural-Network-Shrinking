@@ -1,6 +1,7 @@
 import torch
 from torch import nn as nn
 from torch.nn import functional as F
+from torch.onnx.symbolic_helper import parse_args
 
 
 class EmptyLayer(nn.Module):
@@ -121,62 +122,68 @@ def unfreeze_adder(adder):
     return MutableAdder(adder.in_channels_a, adder.out_channels_a, adder.in_channels_b, adder.out_channels_b)
 
 
-class FrozenAdder(nn.Module):
-    def __init__(self, in_channels_a, out_channels_a, in_channels_b, out_channels_b, channels,
-                 input_a_shape, input_b_shape, output_image_shape, device):
+@parse_args('v', 'v', 'v')
+def scatternd(g, self, index, src):
+    return g.op("ScatterND", self, index, src)
+
+
+class MyScatterFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, src, indices, zeros):
+        indices = indices.view(indices.size(0), 1, 1, 1).expand(src.shape)
+        return zeros.scatter(0, indices, src)
+
+    @staticmethod
+    def symbolic(g, src, indices, zeros):
+        return scatternd(g, zeros, indices, src)
+
+
+class FrozenAdder(torch.nn.Module):
+    def __init__(self, in_channels_a, out_channels_a, in_channels_b, out_channels_b, channels, device):
         super(FrozenAdder, self).__init__()
 
-        if 0 not in input_a_shape:
-            self.skip_gather_a = torch.equal(in_channels_a, torch.linspace(0, input_a_shape[1] - 1, input_a_shape[1],
-                                                                           dtype=torch.int64).to(in_channels_a.device))
+        if not torch.equal(in_channels_a, torch.linspace(0, channels - 1, channels, dtype=torch.int64).to(device)):
+            self.scatter_a = out_channels_a[:, None].to(device)
         else:
-            self.skip_gather_a = True
-        if not self.skip_gather_a:
-            gather_index_a = in_channels_a.view(1, in_channels_a.shape[0], 1, 1)
-            self.gather_index_a = gather_index_a.expand(output_image_shape[0], -1,
-                                                        output_image_shape[2], output_image_shape[3])
+            self.scatter_a = None
 
-        if 0 not in input_b_shape:
-            self.skip_gather_b = torch.equal(in_channels_b, torch.linspace(0, input_b_shape[1] - 1, input_b_shape[1],
-                                                                           dtype=torch.int64).to(in_channels_b.device))
+        if not torch.equal(in_channels_b, torch.linspace(0, channels - 1, channels, dtype=torch.int64).to(device)):
+            self.scatter_b = out_channels_b[:, None].to(device)
         else:
-            self.skip_gather_b = True
-        if not self.skip_gather_b:
-            gather_index_b = in_channels_b.view(1, in_channels_b.shape[0], 1, 1)
-            self.gather_index_b = gather_index_b.expand(output_image_shape[0], -1,
-                                                        output_image_shape[2], output_image_shape[3])
+            self.scatter_b = None
 
-        self.skip_scatter_a = torch.equal(in_channels_a,
-                                          torch.linspace(0, channels - 1, channels,
-                                                         dtype=torch.int64).to(in_channels_a.device))
-        if not self.skip_scatter_a:
-            self.scatter_index_a = out_channels_a.view(
-                1, out_channels_a.shape[0], 1, 1).expand(output_image_shape[0], out_channels_a.shape[0],
-                                                         output_image_shape[2], output_image_shape[3])
+        self.channels = channels
 
-        self.skip_scatter_b = torch.equal(in_channels_b,
-                                          torch.linspace(0, channels - 1, channels,
-                                                         dtype=torch.int64).to(in_channels_b.device))
-        if not self.skip_scatter_b:
-            self.scatter_index_b = out_channels_b.view(
-                1, out_channels_b.shape[0], 1, 1).expand(output_image_shape[0], out_channels_b.shape[0],
-                                                         output_image_shape[2], output_image_shape[3])
-
-        self.zeros = torch.zeros(1, device=device).view(1, 1, 1, 1).expand(
-            output_image_shape[0], channels, output_image_shape[2], output_image_shape[3])
-
-    def forward(self, input_a, input_b):
-        if 0 not in input_a.shape:
-            if not self.skip_gather_a:
-                input_a = torch.gather(input_a, 1, self.gather_index_a)
-            if not self.skip_scatter_a:
-                input_a = self.zeros.scatter(1, self.scatter_index_a, input_a)
-        if 0 not in input_b.shape:
-            if not self.skip_gather_b:
-                input_b = torch.gather(input_b, 1, self.gather_index_b)
-            if not self.skip_scatter_b:
-                input_b = self.zeros.scatter(1, self.scatter_index_b, input_b)
-        return add(input_a, input_b)
+    def forward(self, a, b):
+        if 0 not in a.shape:
+            shape = a.shape
+        elif 0 not in b.shape:
+            shape = b.shape
+        else:
+            return torch.Tensor([]).to(a.device)
+        zeros = torch.Tensor([0]).view(1, 1, 1, 1).expand(self.channels, shape[0], shape[2], shape[3]).to(a.device)
+        if 0 not in a.shape:
+            if self.scatter_a is not None:
+                out1 = MyScatterFunction.apply(a.transpose(0, 1), self.scatter_a, zeros).transpose(0, 1)
+            else:
+                out1 = a
+        else:
+            out1 = None
+        if 0 not in b.shape:
+            if self.scatter_b is not None:
+                out2 = MyScatterFunction.apply(b.transpose(0, 1), self.scatter_b, zeros).transpose(0, 1)
+            else:
+                out2 = b
+        else:
+            out2 = None
+        if out1 is None and out2 is not None:
+            return out2
+        elif out1 is not None and out2 is None:
+            return out1
+        elif out1 is None and out2 is None:
+            return torch.Tensor([]).to(a.device)
+        else:
+            return out1 + out2
 
 
 def freeze_adders(model, image_shape):
@@ -189,8 +196,7 @@ def freeze_adders(model, image_shape):
                     setattr(network, n,
                             FrozenAdder(m.in_channels_a, m.out_channels_a,
                                         m.in_channels_b, m.out_channels_b,
-                                        m.channels, m.input_a_shape, m.input_b_shape,
-                                        m.output_image_shape, m.device))
+                                        m.channels, m.device))
             else:
                 freeze_adders_(m)
 
