@@ -139,43 +139,11 @@
 * **model_path**: Path to the .pt or .chk model to convert (default: '')
     * Accepted values: any path string.
 
-
-* **model**: Type of model (default: 'resnet20')
-    * Accepted values: 'hrnet18', 'hrnet32', 'hrnet48', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152',
-      'resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110'.
-
 * **frozen_image_shape**: Image shape for which to configure the ONNX network (default: (1, 3, 512, 1024))
     * Accepted values: any tuple of integers.
 
-* **minimal_image_shape**: Image shape with which to compute the mask (default: (1, 3, 64, 64))
-    * Accepted values: any tuple of integers.
-
-* **dataset**: dataset to use  (default: './cityscapes')
-    * Accepted values: 'cityscapes', 'cifar10', 'cifar100', 'imagenet'.
-
-* **pretrained**: Use pretrained models.
-    * Using this arguments sets the value on True.
-
-* **pruning_rate**: Pruning rate (default: 0.)
-    * Accepted values: any float value between 0 and 1.
-
-* **input_feature_maps**: Input feature maps of classification ResNets (either 64 or 16)
-    * Accepted values: any int value.
-
 * **device**: Device to use (default: 'cuda')
     * Accepted values: any device string, such as 'cpu' or 'cuda'
-
-* **loading_device**: Device on which are stored the models (default: 'cuda')
-    * Accepted values: any device string, such as 'cpu' or 'cuda'
-
-* **pruning_criterion**: Pruning criterion (default: "global")
-    * Accepted values: 'global', 'local' or 'safe"
-
-* **distributed**: 'no': not distributed, 'load': load with distributed, run normally, "
-  "'run': run with distributed, load normally, 'all': always distributed.
-
-* **already_pruned**: For networks that are already pruned but not frozen.
-    * Using this arguments sets the value on True.
 
 ## Benchmarking on Jetson
 
@@ -190,3 +158,10 @@
 * $3: pruning rate
 * $4: input shape
 * $5: duration of sleep in seconds
+
+## ONNX Implementation
+
+Indexation-additions are performed by scattering the value, of the tensors to sum, into two copies of a same temporary tensor.
+This temporary empty tensor is instantiated within the red rectangle. Scattering is done using the ScatterNd operator; transpositions allow operating directly on channels (cf. [documentation of ScatterND](https://github.com/onnx/onnx/blob/main/docs/Changelog.md#ScatterND-13)).
+
+![image](onnx.png "Title")
