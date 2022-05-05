@@ -68,9 +68,6 @@ def parse_arguments():
     parser.add_argument('--device', type=str, default="cuda",
                         help="Device to use (default: 'cuda')")
 
-    parser.add_argument('--frozen_image_shape', type=tuple_type, default=(1, 3, 512, 1024),
-                        help="Image shape for which to freeze the network at the end (default: (1, 3, 512, 1024))")
-
     # CLASSIFICATION
 
     parser.add_argument('--input_feature_maps', type=int, default=64,
@@ -106,6 +103,9 @@ def parse_arguments():
 
     parser.add_argument('--additional_final_epochs', type=int, default=0,
                         help="How many more fine-tuning epochs at the very end (default: 0)")
+
+    parser.add_argument("--exact_pruning", action="store_true", default=False,
+                        help="Whether or not to use the hacked gradient method to compute the pruning mask.")
 
     # SWD
 

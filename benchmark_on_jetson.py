@@ -21,10 +21,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     log += f'Pruning rate : {args.pruning_rate}, Input shape : {args.input_shape}, '
-    ort_session = onnxruntime.InferenceSession(args.model, providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider',
-                                                                'CPUExecutionProvider'])
+    ort_session = onnxruntime.InferenceSession(args.model, providers=['TensorrtExecutionProvider'])
     ort_inputs = {ort_session.get_inputs()[0].name: np.ones(args.input_shape, dtype=np.float32)}
     log += f'Overhead time : {time() - t}, '
+
+    for _ in range(100):  # Warmup
+        ort_session.run(None, ort_inputs)
 
     t = time()
     for _ in range(1000):  # Run

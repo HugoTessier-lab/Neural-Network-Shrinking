@@ -4,11 +4,18 @@ import os
 
 
 def _save_results(name, message_head, criterion, dataset, e, epochs, global_loss, metrics, output_path, results):
+    if not os.path.isdir(output_path):
+        try:
+            os.mkdir(output_path)
+        except OSError:
+            print(f'Failed to create the folder {output_path}')
+        else:
+            print(f'Created folder {output_path}')
     with open(os.path.join(output_path, name + '_results.txt'), 'a') as f:
         message = f'{message_head}: epoch {e}/{epochs} -> '
         message += f'{criterion.name} loss = {float(global_loss) / (len(dataset["test"]) * dataset["test"].batch_size)}, '
         for k, m in enumerate(metrics):
-            message += f'{m.name} = {float(results[k]) / (len(dataset["test"]) * dataset["test"].batch_size)}\t'
+            message += f'{m.name} = {float(results[k]) / (len(dataset["test"]) * dataset["test"].batch_size)} '
         message += '\n'
         f.write(message)
 
@@ -89,3 +96,8 @@ def train_model(name, checkpoint, dataset, epochs, criterion, metrics, output_pa
         if not freeze_lr:
             checkpoint.scheduler.step()
     checkpoint.store_model(e)
+
+
+def test_model(name, checkpoint, dataset, epochs, criterion, metrics, output_path, debug, device):
+    global_loss, results = _test(checkpoint, criterion, dataset, debug, device, metrics)
+    _save_results(checkpoint.name, name, criterion, dataset, -1, epochs, global_loss, metrics, output_path, results)
